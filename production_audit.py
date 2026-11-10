@@ -62,6 +62,9 @@ def audit_snapshot(public,private,private_strings,strict_strings,approved_busine
                     if not isinstance(value,str):continue
                     if table=='merchants' and column=='merchant':
                         if value!='Other' and value not in approved_business:raise ValueError('Unapproved merchant label')
+                        # Exact approved labels passed the hard person/note check above.
+                        # A raw alias may overlap this label, but is forbidden elsewhere.
+                        continue
                     elif value not in metadata:check(value.encode(),approved_business,table=table,column=column)
                     if value not in metadata:check(value.encode(),forbidden,table=table,column=column)
         PHASE='public_bytes';content=public.read_bytes()

@@ -151,3 +151,12 @@ def test_read_only_server_can_raise_the_folding_threshold(snapshot,monkeypatch):
     monkeypatch.setenv('PLAIDMCP_MIN_GROUP_COUNT','3')
     result=rows(public)[0]
     assert result['merchant']=='Other' and result['total'] is None and result['typical_charge'] is None
+
+
+def test_audit_allows_description_alias_only_inside_verified_merchant(snapshot):
+    db,public=snapshot
+    add(db,[transaction('alias1','2026-09-01',merchant='Fixture Software'),transaction('alias2','2026-10-01',merchant='Fixture Software')]);publish(db,public)
+    # A provider description can be a substring of its normalized business name.
+    audit_snapshot(public,db,{'Fixture','Fixture Software'},set(),{'Fixture Software'})
+    with sqlite3.connect(public) as out:out.execute("UPDATE accounts SET display_name='Fixture'")
+    with pytest.raises(ValueError):audit_snapshot(public,db,{'Fixture','Fixture Software'},set(),{'Fixture Software'})
