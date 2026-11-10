@@ -1,4 +1,5 @@
 """Loopback-only stateless MCP. No imports from the sync or Plaid modules."""
+import telemetry
 import logging
 import os
 import re
@@ -28,10 +29,16 @@ def create_server(path=None):
         def adapt(fn):
             @functools.wraps(fn)
             async def call(*args,**kwargs):
-                return await anyio.to_thread.run_sync(functools.partial(fn,*args,**kwargs))
+                try:
+                    with telemetry.phase('query'):
+                        return await anyio.to_thread.run_sync(functools.partial(fn,*args,**kwargs))
+                except BaseException as exc:
+                    telemetry.failure(exc)
+                    raise
             call.__signature__ = inspect.signature(fn)
             return call
         mcp.tool(description=(method.__doc__ or '')+' All monetary values are decimal units of the returned currency (USD means dollars); no currency conversion. Spending is positive, refunds negative, liabilities positive owed. Read per-source as_of and unreliable_sources.', annotations={'readOnlyHint':True,'destructiveHint':False,'openWorldHint':False})(adapt(method))
+    telemetry.install(mcp, "plaidmcp", "0.1.0")
     return mcp
 
 def create_app(path=None):
