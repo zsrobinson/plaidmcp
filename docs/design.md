@@ -18,7 +18,7 @@ adapter, discovers its wallet/activity and proves MCP names and input/output
 schemas do not change. Public kinds are connection/file_import and data kinds
 are balances/spending/holdings. Provider error strings map to owned health states.
 
-The snapshot has no transaction table, transaction/provider IDs, merchant strings,
+The snapshot has no transaction table, transaction/provider IDs, raw descriptions,
 notes, routing numbers or owner/contact fields. SQL groups by day, opaque account,
 owned category and currency before any activity leaves the database layer. The
 read-only module re-aggregates by requested periods/dimensions. It never imports a
@@ -72,7 +72,7 @@ labels before discarding them. Alias history remains private. Old transaction
 records without account attribution are retained as unassigned; the Sandbox
 checker backfills attribution from its authorized full-history read. No network
 backfill is performed by the MCP. Re-run sync/publication before running the new
-server against an old-format snapshot. There was no deployed server to upgrade.
+server against an old-format snapshot. Merchant migrations rebuild existing Items without Link or new credentials.
 
 Identity registry commits precede atomic snapshot rename so public ids survive
 publication retries. Each MCP call pins one snapshot transaction, including every
@@ -82,7 +82,18 @@ includes all source timestamps and unreliable_sources. Age thresholds describe
 local sync freshness, not market-price age or completeness of institution history.
 
 Privacy config is documented in tools.md. Minimum-count folding affects query
-results and category discovery, not private storage or the aggregate snapshot;
+results and category discovery; merchant groups are also folded before publication. It does not suppress private storage;
 account discovery/balances are not suppressed. It cannot prevent inference from
 multiple filters and is not an anonymization guarantee. Last-four display must be
 explicitly enabled in both sync and server env; the default snapshot stores none.
+
+## Merchant publication
+
+The private transaction store adds only a verified normalized business label. No
+person/unknown counterparty, username or note is retained. A separate `merchants`
+snapshot table contains folded, precomputed calendar windows and merchant-level
+recurrence statistics. It has no day, provider/account id or individual amount.
+The SQL publisher groups across enabled sources and folds counts below max(2,
+min_group_count); a singleton Other has null amounts. Fixed windows limit accidental
+isolation, but overlapping aggregates are not differential privacy and can permit
+inference. Business recognition is conservative and may omit genuine businesses.

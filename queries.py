@@ -13,6 +13,7 @@ from typing import Literal
 ActivityGroup = Literal['category','category_detailed','month','week','account','institution']
 HoldingGroup = Literal['security','account','asset_class','security_type']
 BalanceGroup = Literal['type','account','institution']
+MerchantWindow = Literal['month_to_date','last_month','last_3_months','last_6_months','last_12_months','all_history']
 
 
 def today_utc():
@@ -181,6 +182,33 @@ class Queries:
                     return out
                 result['comparison']={**other,'deltas':deltas(result['totals'],other['totals'])}
             return result
+        return self._read(read)
+
+    def merchant_totals(self,window:MerchantWindow='last_6_months',recurring_only:bool=False) -> dict:
+        """Answer 'which businesses do I spend with, and what is my monthly average?' Returns only normalized business-name aggregates, positive spending/refunds negative, decimal units separated by currency. Windows: month_to_date, last_month, or last_3/6/12_months (completed UTC calendar months), or all_history (observed span). Set recurring_only=true to find subscription candidates. No arbitrary dates, account/merchant filters or single purchases. At least max(2,min_group_count) purchases per named merchant/window; smaller groups fold into Other. Other with too few purchases has null total/average. Monthly average divides the window total by its calendar-month equivalents. Recurring uses provider patterns when available, otherwise at least two regularly spaced charges with amounts within 25%. Returns frequency (weekly/monthly/quarterly/yearly), typical_charge (median positive charges), last_charged_month (YYYY-MM only), active (last charge within 1.5 periods), recurring_method. These are candidates, not guaranteed subscriptions. Short history cannot establish yearly recurrence; never infer a yearly plan from only a few months. Provider BIWEEKLY/SEMI_MONTHLY is not forced into a different frequency. Venmo needs explicit high-confidence business evidence; people, notes, usernames and peer/bank transfers are excluded. Use cash_flow(include_peer_transfers=true) for peer buckets. Snapshot windows are computed at sync; every result includes source freshness."""
+        from merchants import WINDOWS
+        if window not in WINDOWS:raise ValueError('Use a discovered supported merchant window')
+        def read(db,sources):
+            rows=[]
+            threshold=max(2,self.minimum)
+            sql='''WITH folded AS (SELECT CASE WHEN purchase_count<? THEN 'Other' ELSE merchant END AS label,* FROM merchants WHERE window=?),
+                grouped AS (SELECT label AS merchant,currency,CASE WHEN COUNT(total)=COUNT(*) AND SUM(purchase_count)>=? THEN ROUND(SUM(total),2) END AS total,
+                SUM(purchase_count) AS purchase_count,MAX(months) AS months,
+                CASE WHEN label!='Other' THEN MAX(recurring) END AS recurring,
+                CASE WHEN label!='Other' THEN MAX(frequency) END AS frequency,
+                CASE WHEN label!='Other' THEN MAX(typical_charge) END AS typical_charge,
+                CASE WHEN label!='Other' THEN MAX(last_charged_month) END AS last_charged_month,
+                CASE WHEN label!='Other' THEN MAX(active) END AS active,
+                CASE WHEN label!='Other' THEN MAX(recurring_method) END AS recurring_method FROM folded GROUP BY label,currency)
+                SELECT * FROM grouped WHERE ?=0 OR recurring=1 ORDER BY currency,total DESC,merchant'''
+            for raw in db.execute(sql,(threshold,window,threshold,recurring_only)):
+                row=dict(raw);months=row.pop('months')
+                row['monthly_average']=round(row['total']/months,2) if row['total'] is not None else None
+                row['recurring']=bool(row['recurring']) if row['recurring'] is not None else None
+                row['active']=bool(row['active']) if row['active'] is not None else None
+                row['suppressed']=row['total'] is None
+                rows.append(row)
+            return {'window':window,'recurring_only':recurring_only,'merchants':rows}
         return self._read(read)
 
     def _balances(self,db,group_by,account_ids,institution):

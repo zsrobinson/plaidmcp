@@ -6,7 +6,7 @@ import urllib.request
 import urllib.error
 
 ALLOWED = frozenset({"/link/token/create", "/item/public_token/exchange", "/accounts/get",
-    "/accounts/balance/get", "/transactions/sync", "/investments/holdings/get",
+    "/accounts/balance/get", "/transactions/sync", "/transactions/recurring/get", "/investments/holdings/get",
     "/item/get", "/institutions/get_by_id"})
 
 SANDBOX_CREATE = "/sandbox/public_token/create"

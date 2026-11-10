@@ -21,7 +21,7 @@ async def test_all_tools_privacy_and_concurrency(snapshot):
     await asyncio.wait_for(asyncio.gather(*(call(n) for _ in range(5) for n in TOOLS)),10)
     assert MERCHANT.encode() not in path.read_bytes()
     with sqlite3.connect(path) as db2:
-        assert {r[0] for r in db2.execute("SELECT name FROM sqlite_master WHERE type='table'")}=={'sources','accounts','daily','holdings'}
+        assert {r[0] for r in db2.execute("SELECT name FROM sqlite_master WHERE type='table'")}=={'sources','accounts','daily','holdings','merchants'}
         assert not any(r[0] for r in db2.execute('SELECT last_four FROM accounts'))
     with pytest.raises(sqlite3.OperationalError): Queries(path)._read(lambda db,sources:db.execute('DELETE FROM accounts'))
 

@@ -27,10 +27,13 @@ def sync_item(db, client, row):
     products = set(product.split(','))
     if not products or products - {'transactions','investments'}:
         raise ValueError('Unsupported stored sync products')
+    backfill=os.environ.get('PLAIDMCP_BACKFILL_MERCHANTS','false').lower()=='true' and 'transactions' in products
+    if backfill:cursor=None
     # Whole pagination transaction rolls back on mutation, leaving the old cursor intact.
     for attempt in range(3):
         try:
             with db:
+                if backfill:db.execute('DELETE FROM transactions WHERE item=?',(item,))
                 meta = client.call('/item/get',access_token=token)['item']
                 if meta.get('error'): raise PlaidError(meta['error'].get('error_code','PLAID_ERROR'))
                 institution = client.call('/institutions/get_by_id',institution_id=institution_id,country_codes=['US'])['institution']['name']
@@ -50,6 +53,10 @@ def sync_item(db, client, row):
                         if not page['has_more']: break
                     else: raise PlaidError('PAGINATION_LIMIT')
                     db.execute('UPDATE credentials SET cursor=? WHERE item=?',(next_cursor,item))
+                    from merchants import ingest_recurring
+                    try:recurring=client.call('/transactions/recurring/get',access_token=token)
+                    except PlaidError:recurring={}
+                    ingest_recurring(db,item,recurring)
                 if 'investments' in products:
                     ingest_holdings(db,item,client.call('/investments/holdings/get',access_token=token))
                 now = datetime.now(timezone.utc).isoformat()

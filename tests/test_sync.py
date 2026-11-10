@@ -8,7 +8,7 @@ def test_allowlist(monkeypatch):
     monkeypatch.setenv('PLAID_CLIENT_ID','fake'); monkeypatch.setenv('PLAID_SECRET','fake')
     c=Client()
     assert c.base=='https://sandbox.plaid.com'
-    assert len(ALLOWED)==8
+    assert len(ALLOWED)==9
     for path in ('/transfer/create','/auth/get','/identity/get','/accounts/balance/get'):
         with pytest.raises(ValueError): c.call(path)
     with pytest.raises(ValueError): c.call('/link/token/create',products=['auth'])
@@ -26,6 +26,7 @@ def test_sync_pagination_rollback(snapshot):
             if path=='/item/get': return {'item':{}}
             if path=='/institutions/get_by_id': return {'institution':{'name':'Example Bank'}}
             if path=='/accounts/get': return {'accounts':[]}
+            if path=='/transactions/recurring/get':raise PlaidError('PRODUCT_NOT_ENABLED')
             self.cursors.append(kw.get('cursor')); self.calls+=1
             assert kw['options']['personal_finance_category_version']=='v2'
             if self.calls==2: raise PlaidError('TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION')
@@ -79,6 +80,7 @@ def test_combined_products_syncs_both_and_cursor(snapshot):
             if path=='/item/get': return {'item':{}}
             if path=='/institutions/get_by_id': return {'institution':{'name':'Fake Sandbox'}}
             if path=='/accounts/get': return {'accounts':[]}
+            if path=='/transactions/recurring/get':raise PlaidError('PRODUCT_NOT_ENABLED')
             if path=='/transactions/sync': return {'added':[],'modified':[],'removed':[],'next_cursor':'done','has_more':False}
             if path=='/investments/holdings/get': return {'holdings':[],'securities':[]}
             raise AssertionError('Unexpected endpoint')

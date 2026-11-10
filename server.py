@@ -9,7 +9,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 from access import AccessJWTMiddleware
 from queries import Queries
 
-TOOLS = ('overview','list_accounts','list_sources','list_categories','cash_flow','balance_summary','holdings')
+TOOLS = ('overview','list_accounts','list_sources','list_categories','cash_flow','balance_summary','holdings','merchant_totals')
 
 def create_server(path=None):
     public_host=os.environ.get('PLAIDMCP_PUBLIC_HOST','plaidmcp.example.com')

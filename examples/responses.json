@@ -1,12 +1,12 @@
 {
   "overview": {
     "as_of": {
-      "src_6fff88061fc340dbb115b89438af1a79": "2026-11-10T12:00:00+00:00",
-      "src_8924422446a14068b84c86d60edcae1c": "2026-11-10T12:00:00+00:00"
+      "src_cf09181a734043b18d4120c727ba6208": "2026-11-10T12:00:00+00:00",
+      "src_5d706ad09c314137a89f90bb3928e7d6": "2026-11-10T12:00:00+00:00"
     },
     "sources": [
       {
-        "id": "src_6fff88061fc340dbb115b89438af1a79",
+        "id": "src_cf09181a734043b18d4120c727ba6208",
         "institution": "Example Bank",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -18,7 +18,7 @@
         "freshness": "current"
       },
       {
-        "id": "src_8924422446a14068b84c86d60edcae1c",
+        "id": "src_5d706ad09c314137a89f90bb3928e7d6",
         "institution": "Example Broker",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -186,12 +186,12 @@
   },
   "list_accounts": {
     "as_of": {
-      "src_6fff88061fc340dbb115b89438af1a79": "2026-11-10T12:00:00+00:00",
-      "src_8924422446a14068b84c86d60edcae1c": "2026-11-10T12:00:00+00:00"
+      "src_cf09181a734043b18d4120c727ba6208": "2026-11-10T12:00:00+00:00",
+      "src_5d706ad09c314137a89f90bb3928e7d6": "2026-11-10T12:00:00+00:00"
     },
     "sources": [
       {
-        "id": "src_6fff88061fc340dbb115b89438af1a79",
+        "id": "src_cf09181a734043b18d4120c727ba6208",
         "institution": "Example Bank",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -203,7 +203,7 @@
         "freshness": "current"
       },
       {
-        "id": "src_8924422446a14068b84c86d60edcae1c",
+        "id": "src_5d706ad09c314137a89f90bb3928e7d6",
         "institution": "Example Broker",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -218,8 +218,8 @@
     "unreliable_sources": [],
     "data": [
       {
-        "id": "acct_3ebc79ba83134f5ea03ba486df79c28e",
-        "display_name": "Checking 79c28e",
+        "id": "acct_2cc17308de4c4bbcb78e235b298ab04f",
+        "display_name": "Checking 8ab04f",
         "institution": "Example Bank",
         "type": "depository",
         "subtype": "checking",
@@ -232,15 +232,15 @@
           "spending"
         ],
         "availability": "available",
-        "source_id": "src_6fff88061fc340dbb115b89438af1a79",
+        "source_id": "src_cf09181a734043b18d4120c727ba6208",
         "source_kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
         "freshness": "current",
         "status": "healthy"
       },
       {
-        "id": "acct_ba6c6f761a5d4b569c21cc9bb2c9557f",
-        "display_name": "Credit Card c9557f",
+        "id": "acct_06b9f81eb39941cebbe08da8b9adbcb7",
+        "display_name": "Credit Card adbcb7",
         "institution": "Example Bank",
         "type": "credit",
         "subtype": "credit card",
@@ -253,15 +253,15 @@
           "spending"
         ],
         "availability": "available",
-        "source_id": "src_6fff88061fc340dbb115b89438af1a79",
+        "source_id": "src_cf09181a734043b18d4120c727ba6208",
         "source_kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
         "freshness": "current",
         "status": "healthy"
       },
       {
-        "id": "acct_b57a4a023e5c405b8fc890f36a7ee9f4",
-        "display_name": "Brokerage 7ee9f4",
+        "id": "acct_9d367eed53f34b8f9ce84a325dd88fab",
+        "display_name": "Brokerage d88fab",
         "institution": "Example Broker",
         "type": "investment",
         "subtype": "brokerage",
@@ -274,7 +274,7 @@
           "holdings"
         ],
         "availability": "available",
-        "source_id": "src_8924422446a14068b84c86d60edcae1c",
+        "source_id": "src_5d706ad09c314137a89f90bb3928e7d6",
         "source_kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
         "freshness": "current",
@@ -284,12 +284,12 @@
   },
   "list_sources": {
     "as_of": {
-      "src_6fff88061fc340dbb115b89438af1a79": "2026-11-10T12:00:00+00:00",
-      "src_8924422446a14068b84c86d60edcae1c": "2026-11-10T12:00:00+00:00"
+      "src_cf09181a734043b18d4120c727ba6208": "2026-11-10T12:00:00+00:00",
+      "src_5d706ad09c314137a89f90bb3928e7d6": "2026-11-10T12:00:00+00:00"
     },
     "sources": [
       {
-        "id": "src_6fff88061fc340dbb115b89438af1a79",
+        "id": "src_cf09181a734043b18d4120c727ba6208",
         "institution": "Example Bank",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -301,7 +301,7 @@
         "freshness": "current"
       },
       {
-        "id": "src_8924422446a14068b84c86d60edcae1c",
+        "id": "src_5d706ad09c314137a89f90bb3928e7d6",
         "institution": "Example Broker",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -316,7 +316,7 @@
     "unreliable_sources": [],
     "data": [
       {
-        "id": "src_6fff88061fc340dbb115b89438af1a79",
+        "id": "src_cf09181a734043b18d4120c727ba6208",
         "institution": "Example Bank",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -328,7 +328,7 @@
         "freshness": "current"
       },
       {
-        "id": "src_8924422446a14068b84c86d60edcae1c",
+        "id": "src_5d706ad09c314137a89f90bb3928e7d6",
         "institution": "Example Broker",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -343,12 +343,12 @@
   },
   "list_categories": {
     "as_of": {
-      "src_6fff88061fc340dbb115b89438af1a79": "2026-11-10T12:00:00+00:00",
-      "src_8924422446a14068b84c86d60edcae1c": "2026-11-10T12:00:00+00:00"
+      "src_cf09181a734043b18d4120c727ba6208": "2026-11-10T12:00:00+00:00",
+      "src_5d706ad09c314137a89f90bb3928e7d6": "2026-11-10T12:00:00+00:00"
     },
     "sources": [
       {
-        "id": "src_6fff88061fc340dbb115b89438af1a79",
+        "id": "src_cf09181a734043b18d4120c727ba6208",
         "institution": "Example Bank",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -360,7 +360,7 @@
         "freshness": "current"
       },
       {
-        "id": "src_8924422446a14068b84c86d60edcae1c",
+        "id": "src_5d706ad09c314137a89f90bb3928e7d6",
         "institution": "Example Broker",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -408,12 +408,12 @@
   },
   "cash_flow": {
     "as_of": {
-      "src_6fff88061fc340dbb115b89438af1a79": "2026-11-10T12:00:00+00:00",
-      "src_8924422446a14068b84c86d60edcae1c": "2026-11-10T12:00:00+00:00"
+      "src_cf09181a734043b18d4120c727ba6208": "2026-11-10T12:00:00+00:00",
+      "src_5d706ad09c314137a89f90bb3928e7d6": "2026-11-10T12:00:00+00:00"
     },
     "sources": [
       {
-        "id": "src_6fff88061fc340dbb115b89438af1a79",
+        "id": "src_cf09181a734043b18d4120c727ba6208",
         "institution": "Example Bank",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -425,7 +425,7 @@
         "freshness": "current"
       },
       {
-        "id": "src_8924422446a14068b84c86d60edcae1c",
+        "id": "src_5d706ad09c314137a89f90bb3928e7d6",
         "institution": "Example Broker",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -475,12 +475,12 @@
   },
   "balance_summary": {
     "as_of": {
-      "src_6fff88061fc340dbb115b89438af1a79": "2026-11-10T12:00:00+00:00",
-      "src_8924422446a14068b84c86d60edcae1c": "2026-11-10T12:00:00+00:00"
+      "src_cf09181a734043b18d4120c727ba6208": "2026-11-10T12:00:00+00:00",
+      "src_5d706ad09c314137a89f90bb3928e7d6": "2026-11-10T12:00:00+00:00"
     },
     "sources": [
       {
-        "id": "src_6fff88061fc340dbb115b89438af1a79",
+        "id": "src_cf09181a734043b18d4120c727ba6208",
         "institution": "Example Bank",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -492,7 +492,7 @@
         "freshness": "current"
       },
       {
-        "id": "src_8924422446a14068b84c86d60edcae1c",
+        "id": "src_5d706ad09c314137a89f90bb3928e7d6",
         "institution": "Example Broker",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -561,12 +561,12 @@
   },
   "holdings": {
     "as_of": {
-      "src_6fff88061fc340dbb115b89438af1a79": "2026-11-10T12:00:00+00:00",
-      "src_8924422446a14068b84c86d60edcae1c": "2026-11-10T12:00:00+00:00"
+      "src_cf09181a734043b18d4120c727ba6208": "2026-11-10T12:00:00+00:00",
+      "src_5d706ad09c314137a89f90bb3928e7d6": "2026-11-10T12:00:00+00:00"
     },
     "sources": [
       {
-        "id": "src_6fff88061fc340dbb115b89438af1a79",
+        "id": "src_cf09181a734043b18d4120c727ba6208",
         "institution": "Example Bank",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -578,7 +578,7 @@
         "freshness": "current"
       },
       {
-        "id": "src_8924422446a14068b84c86d60edcae1c",
+        "id": "src_5d706ad09c314137a89f90bb3928e7d6",
         "institution": "Example Broker",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -616,6 +616,44 @@
           "unrealized_gain": 500.0
         }
       ]
+    }
+  },
+  "merchant_totals": {
+    "as_of": {
+      "src_cf09181a734043b18d4120c727ba6208": "2026-11-10T12:00:00+00:00",
+      "src_5d706ad09c314137a89f90bb3928e7d6": "2026-11-10T12:00:00+00:00"
+    },
+    "sources": [
+      {
+        "id": "src_cf09181a734043b18d4120c727ba6208",
+        "institution": "Example Bank",
+        "kind": "connection",
+        "as_of": "2026-11-10T12:00:00+00:00",
+        "status": "healthy",
+        "data_kinds": [
+          "balances",
+          "spending"
+        ],
+        "freshness": "current"
+      },
+      {
+        "id": "src_5d706ad09c314137a89f90bb3928e7d6",
+        "institution": "Example Broker",
+        "kind": "connection",
+        "as_of": "2026-11-10T12:00:00+00:00",
+        "status": "healthy",
+        "data_kinds": [
+          "balances",
+          "holdings"
+        ],
+        "freshness": "current"
+      }
+    ],
+    "unreliable_sources": [],
+    "data": {
+      "window": "last_6_months",
+      "recurring_only": false,
+      "merchants": []
     }
   }
 }

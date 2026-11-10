@@ -1,4 +1,4 @@
-"""Private ingestion and atomic publication. No merchant/description is retained."""
+"""Private ingestion and atomic publication. Only verified normalized business names are retained privately; no descriptions."""
 import os
 import re
 import sqlite3
@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS items(id TEXT PRIMARY KEY, institution TEXT, as_of TE
 CREATE TABLE IF NOT EXISTS accounts(id TEXT PRIMARY KEY, item TEXT, name TEXT, mask TEXT, type TEXT, subtype TEXT, currency TEXT, current REAL, available REAL, credit_limit REAL);
 CREATE TABLE IF NOT EXISTS transactions(id TEXT PRIMARY KEY, item TEXT, date TEXT, primary_category TEXT, detailed_category TEXT, currency TEXT, amount REAL, pending INTEGER);
 CREATE TABLE IF NOT EXISTS venmo_rows(date TEXT, cents INTEGER, direction TEXT CHECK(direction IN ('in','out')), category TEXT CHECK(category IN ('peer_sent','peer_received','purchase','bank_transfer','fee')));
+CREATE TABLE IF NOT EXISTS recurring_merchants(item TEXT,merchant TEXT COLLATE NOCASE,currency TEXT,frequency TEXT,last_charged_month TEXT,active INTEGER,PRIMARY KEY(item,merchant));
 CREATE TABLE IF NOT EXISTS holdings(item TEXT, account TEXT, ticker TEXT, name TEXT, type TEXT, currency TEXT, quantity REAL, value REAL, cost_basis REAL);
 """
 
@@ -22,6 +23,7 @@ def connect(path):
     if 'active' not in {row[1] for row in db.execute('PRAGMA table_info(accounts)')}: db.execute('ALTER TABLE accounts ADD COLUMN active INTEGER DEFAULT 1')
     columns = {row[1] for row in db.execute('PRAGMA table_info(transactions)')}
     if 'account' not in columns: db.execute('ALTER TABLE transactions ADD COLUMN account TEXT')
+    if 'merchant' not in columns: db.execute('ALTER TABLE transactions ADD COLUMN merchant TEXT')
     db.executescript("""
     CREATE TABLE IF NOT EXISTS account_identity(ref TEXT PRIMARY KEY, institution TEXT, type TEXT, subtype TEXT, name_key TEXT);
     CREATE TABLE IF NOT EXISTS account_alias(provider_ref TEXT, item TEXT, ref TEXT, PRIMARY KEY(provider_ref,item));
@@ -77,15 +79,20 @@ def ingest_transactions(db, item, page):
         primary = p.get('primary','UNKNOWN')
         detailed = p.get('detailed','UNKNOWN')
         institution = db.execute('SELECT institution FROM items WHERE id=?',(item,)).fetchone()
-        # Use only institution + structured category, never names, notes or counterparties.
+        # Business eligibility uses structured Plaid evidence; never descriptions/notes.
+        from merchants import business_name
         is_venmo = institution and 'venmo' in institution[0].casefold()
+        merchant=business_name(t,bool(is_venmo))
+        if is_venmo and merchant is None and primary not in ('TRANSFER_IN','TRANSFER_OUT','BANK_FEES'):
+            primary='TRANSFER_IN' if t['amount']<0 else 'TRANSFER_OUT'
+            detailed=primary+'_PEER_TRANSFER'
         explicit_peer = detailed in ('TRANSFER_OUT_PEER_TO_PEER','TRANSFER_IN_PEER_TO_PEER',
             'TRANSFER_OUT_PEER_TRANSFER','TRANSFER_IN_PEER_TRANSFER')
         if primary in ('TRANSFER_IN','TRANSFER_OUT') and (explicit_peer or
                 (is_venmo and detailed in ('TRANSFER_IN_OTHER_TRANSFER','TRANSFER_OUT_OTHER_TRANSFER','UNKNOWN'))):
             detailed = primary + '_PEER_TRANSFER'
-        db.execute("INSERT OR REPLACE INTO transactions VALUES(?,?,?,?,?,?,?,?,?)", (t['transaction_id'], item,
-            t['date'], primary, detailed, t.get('iso_currency_code') or t.get('unofficial_currency_code') or 'UNKNOWN', t['amount'], bool(t.get('pending')),t.get('account_id')))
+        db.execute("INSERT OR REPLACE INTO transactions(id,item,date,primary_category,detailed_category,currency,amount,pending,account,merchant) VALUES(?,?,?,?,?,?,?,?,?,?)", (t['transaction_id'], item,
+            t['date'], primary, detailed, t.get('iso_currency_code') or t.get('unofficial_currency_code') or 'UNKNOWN', t['amount'], bool(t.get('pending')),t.get('account_id'),merchant))
     for t in page.get('removed', []):
         db.execute("DELETE FROM transactions WHERE id=? AND item=?", (t['transaction_id'],item))
 
@@ -103,7 +110,8 @@ def publish(db, path, sources=None):
     fd,temp = tempfile.mkstemp(dir=path.parent,prefix='.aggregate-'); os.close(fd)
     out = sqlite3.connect(temp)
     try:
-        out.executescript(PUBLIC_SCHEMA)
+        from merchants import MERCHANT_SCHEMA, publish_merchants
+        out.executescript(PUBLIC_SCHEMA+MERCHANT_SCHEMA)
         for source in snapshot_sources(db) if sources is None else sources:
             snapshot = source.read_snapshot(db)
             for table,rows in snapshot.items():
@@ -117,6 +125,7 @@ def publish(db, path, sources=None):
                         if prior and prior[0]=='available' and row[-1]!='available': continue
                         verb='INSERT OR REPLACE INTO '
                     out.execute(verb+table+' VALUES('+','.join('?' for _ in row)+')',row)
+        publish_merchants(db,out)
         out.commit(); out.close()
         os.chmod(temp,0o640)
         with open(temp,'rb') as f: os.fsync(f.fileno())

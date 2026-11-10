@@ -1,6 +1,6 @@
 # plaidmcp tools
 
-Seven generic, read-only tools answer financial questions independently of institutions
+Eight generic, read-only tools answer financial questions independently of institutions
 and providers. Start with `overview`. Use `list_accounts`, `list_sources` and
 `list_categories` to discover supported filters/capabilities instead of guessing.
 Adding/removing a source changes records, not names or schemas. No tool accepts
@@ -32,7 +32,7 @@ values are cached institution figures and can predate a successful sync.
 Dates are YYYY-MM-DD; start inclusive, end exclusive, default UTC month-to-date
 through today's date. Month groups are YYYY-MM; week groups start Monday and use
 the Monday's date. Amount and count fields are SQL aggregates, never transactions.
-No merchant, payment note, counterparty, provider account id, routing/full account
+No payment note, person counterparty, provider account id, routing/full account
 number or owner/contact information is available. Last four is opt-in only.
 
 Opaque account ids and generated labels are described in [design.md](design.md).
@@ -140,6 +140,47 @@ other. Current normalization conservatively maps unknown instruments to other;
 no claim of look-through fund allocation. Positions aggregate by security/account;
 there is no trade or tax-lot tool.
 
+### merchant_totals
+
+Inputs: `window` (default `last_6_months`): `month_to_date`, `last_month`,
+`last_3_months`, `last_6_months`, `last_12_months`, `all_history`;
+`recurring_only` (default false). Last N months means completed UTC calendar months;
+all_history uses the observed activity span. Windows reflect the latest sync, with
+source freshness in the common envelope. No arbitrary date/account/merchant filters.
+
+Returns `window`, `recurring_only`, and `merchants[]`: `merchant`, `currency`,
+`total`, `purchase_count`, `monthly_average`, `recurring`, `frequency`,
+`typical_charge`, `last_charged_month`, `active`, `recurring_method`, `suppressed`.
+Amounts are decimal currency units: spending positive, refunds negative; no FX.
+Purchase counts include positive posted charges, not pending charges or refunds.
+Monthly average divides net total by calendar-month equivalents in the window.
+Only normalized verified business names are allowed; no raw descriptions, people,
+notes/usernames, single-purchase amounts or charge dates are available.
+
+Groups below **max(2, min_group_count)** fold into **Other before the snapshot is
+written**. If Other still has fewer purchases, its total/average are null and
+suppressed=true. Its recurrence fields are null. Unknown merchants are omitted,
+so this tool's totals need not reconcile to all spending. Bank transfers, card
+payments and peer transfers never become merchants. For peer totals, use cash_flow
+with include_peer_transfers=true. Venmo business rows require a matching Plaid
+merchant entity, VERY_HIGH counterparty confidence and online/in-store channel;
+ambiguous rows are peer transfers. CSV notes/names remain discarded at parse time.
+
+`recurring_only=true` finds **subscription candidates**, not proven subscriptions.
+The optional recurring endpoint supplies merchant-level patterns where available;
+otherwise the heuristic needs at least **two** positive charges, all amounts
+within 25% of the minimum, and all observed gaps in one of these bands: weekly
+5–9 days, monthly 25–35, quarterly 80–100, yearly 350–380. Median typical_charge
+uses positive charges in the selected window; refunds do not alter cadence.
+`frequency` is weekly/monthly/quarterly/yearly. `last_charged_month` is YYYY-MM,
+never a day. `active` requires a charge within 1.5 nominal periods (7, 30.4375,
+91.3125, 365.25 days); a provider inactive hint also makes active=false.
+`recurring_method` is provider_pattern or cadence_heuristic. Unsupported provider
+frequencies are not relabeled. Two-charge detection is tentative; merchants with
+multiple products or variable bills may not fit. Short histories cannot establish
+yearly subscriptions: at least two observed yearly charges are needed. All-history
+averages use observed span, not guaranteed complete historical coverage.
+
 ## Private configuration
 
 - `PLAIDMCP_INCLUDE_LAST_FOUR=false`: default omits masks in responses **and** the
@@ -156,11 +197,6 @@ there is no trade or tax-lot tool.
 
 ## Exact input schemas and model-facing descriptions
 
-Generated from the final FastMCP registration. Every parameter is optional; no
-institution or source-specific parameter exists. Empty input answers the common
-case. Returned records, not tool schemas, expand when sources/accounts are added.
-
-
 ### overview
 
 Start here for 'how are my finances?': net worth, cash/invested/credit owed, month-to-date spending, prior full month and same elapsed days, trailing-six-full-month median, and top current categories. Decimal amounts per currency; spending positive/refunds negative; liabilities positive owed. Transfers/peer payments excluded. Null median means less than six observed calendar months; no assumption that missing history is zero. Coverage/freshness is not a guarantee every transaction has arrived. Every result includes per-source as_of and unreliable_sources. All monetary values are decimal units of the returned currency (USD means dollars); no currency conversion. Spending is positive, refunds negative, liabilities positive owed. Read per-source as_of and unreliable_sources.
@@ -172,7 +208,6 @@ Start here for 'how are my finances?': net worth, cash/invested/credit owed, mon
   "type": "object"
 }
 ```
-
 
 ### list_accounts
 
@@ -214,7 +249,6 @@ Discover accounts and reusable opaque ids for filters. Generated display labels 
 }
 ```
 
-
 ### list_sources
 
 Discover connected/imported sources, data kinds (balances/spending/holdings), sync times and plain-language health. No provider identifiers or credentials. All amounts elsewhere are decimal currency units, separated by currency. Check unreliable_sources before trusting totals. All monetary values are decimal units of the returned currency (USD means dollars); no currency conversion. Spending is positive, refunds negative, liabilities positive owed. Read per-source as_of and unreliable_sources.
@@ -226,7 +260,6 @@ Discover connected/imported sources, data kinds (balances/spending/holdings), sy
   "type": "object"
 }
 ```
-
 
 ### list_categories
 
@@ -245,7 +278,6 @@ Learn plaidmcp's source-independent category and detailed-category filter codes.
   "type": "object"
 }
 ```
-
 
 ### cash_flow
 
@@ -370,7 +402,6 @@ Answer spending/income questions by category, detailed category, month, ISO Mond
 }
 ```
 
-
 ### balance_summary
 
 Answer net-worth and balance questions by type, account or institution. Decimal currency units; assets/cash/invested positive, liabilities and credit_owed positive amounts owed (negative for an actual credit balance), net_worth=assets-liabilities. Excludes historical accounts and counts unknown balances (including statement wallets) instead of inventing zero; totals with unknown_balances are partial. Investments use account balances, never balance plus holdings. No currency conversion. All monetary values are decimal units of the returned currency (USD means dollars); no currency conversion. Spending is positive, refunds negative, liabilities positive owed. Read per-source as_of and unreliable_sources.
@@ -421,7 +452,6 @@ Answer net-worth and balance questions by type, account or institution. Decimal 
 }
 ```
 
-
 ### holdings
 
 Answer portfolio/allocation questions by security, account, asset_class or security_type. Decimal currency value/cost_basis/unrealized_gain=value-cost_basis; quantity is units and only meaningful per security. Missing basis/gain stays null. Allocation percentages are within the filtered portfolio per currency. Security rows include ticker/name; account ids match list_accounts. No trades, owners or account numbers. Small position groups fold into Other when configured. All monetary values are decimal units of the returned currency (USD means dollars); no currency conversion. Spending is positive, refunds negative, liabilities positive owed. Read per-source as_of and unreliable_sources.
@@ -469,6 +499,37 @@ Answer portfolio/allocation questions by security, account, asset_class or secur
     }
   },
   "title": "holdingsArguments",
+  "type": "object"
+}
+```
+
+### merchant_totals
+
+Answer 'which businesses do I spend with, and what is my monthly average?' Returns only normalized business-name aggregates, positive spending/refunds negative, decimal units separated by currency. Windows: month_to_date, last_month, or last_3/6/12_months (completed UTC calendar months), or all_history (observed span). Set recurring_only=true to find subscription candidates. No arbitrary dates, account/merchant filters or single purchases. At least max(2,min_group_count) purchases per named merchant/window; smaller groups fold into Other. Other with too few purchases has null total/average. Monthly average divides the window total by its calendar-month equivalents. Recurring uses provider patterns when available, otherwise at least two regularly spaced charges with amounts within 25%. Returns frequency (weekly/monthly/quarterly/yearly), typical_charge (median positive charges), last_charged_month (YYYY-MM only), active (last charge within 1.5 periods), recurring_method. These are candidates, not guaranteed subscriptions. Short history cannot establish yearly recurrence; never infer a yearly plan from only a few months. Provider BIWEEKLY/SEMI_MONTHLY is not forced into a different frequency. Venmo needs explicit high-confidence business evidence; people, notes, usernames and peer/bank transfers are excluded. Use cash_flow(include_peer_transfers=true) for peer buckets. Snapshot windows are computed at sync; every result includes source freshness. All monetary values are decimal units of the returned currency (USD means dollars); no currency conversion. Spending is positive, refunds negative, liabilities positive owed. Read per-source as_of and unreliable_sources.
+
+```json
+{
+  "properties": {
+    "window": {
+      "default": "last_6_months",
+      "enum": [
+        "month_to_date",
+        "last_month",
+        "last_3_months",
+        "last_6_months",
+        "last_12_months",
+        "all_history"
+      ],
+      "title": "Window",
+      "type": "string"
+    },
+    "recurring_only": {
+      "default": false,
+      "title": "Recurring Only",
+      "type": "boolean"
+    }
+  },
+  "title": "merchant_totalsArguments",
   "type": "object"
 }
 ```

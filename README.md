@@ -9,16 +9,17 @@ question. [Exact tools and sign conventions](docs/tools.md) ·
 
 ## Layout
 
-- `server.py`, `queries.py`, `access.py`: seven generic FastMCP tools, concurrent
+- `server.py`, `queries.py`, `access.py`: eight generic FastMCP tools, concurrent
   read-only SQLite queries, loopback Streamable HTTP and Access JWT verification.
 - `sources.py`, `taxonomy.py`: common Source interface, two adapters, public schema
   and owned financial category taxonomy. Only normalized SQL aggregates cross this interface.
 - `store.py`, `sync.py`, `plaid_client.py`: private ingestion, identities, sync,
   endpoint allowlist and atomic publication. The server imports none of them.
 - `venmo_import.py`: offline monthly statement fallback, with parse-time stripping.
+- `merchants.py`, `production_audit.py`: conservative business eligibility, folded merchant windows, subscription candidates and gated privacy checks.
 - `link.py`: owner-only loopback Link helper; never expose through a tunnel.
 - `tests/`, `smoke.py`, `sandbox_check.py`: offline and explicit Sandbox validation.
-- `deploy/`: opt-in staged installer/units/runbook; nothing deployed.
+- `deploy/`: generic deployment contract and temporary owner-session template.
 
 Matches a lightweight Python MCP pattern's Python 3.12, official FastMCP/Uvicorn, PyJWT, `uv.lock` and
 hash-pinned wheels. No Docker, browser runtime, pandas or persistent Plaid SDK.
@@ -35,7 +36,7 @@ live institution linking remain unverified. Staged units retain 192 MiB caps.
 uv sync --locked
 .venv/bin/pytest -q
 .venv/bin/python smoke.py
-bash -n deploy/install.sh
+# Review deploy/README.md before any deployment.
 # Explicit live Sandbox only, after private credentials exist:
 .venv/bin/python sandbox_check.py --resume
 ```
@@ -63,9 +64,10 @@ echo a PFC version flag in these responses. Sandbox totals are fake finances.
 ## Private ingestion
 
 Plaid requests only transactions and investments in Link; no auth, identity,
-transfer, payments or other products. Eight normal allowed endpoints are retained:
+transfer, payments or other products. Nine normal read-only endpoints are allowed:
 `/link/token/create`, `/item/public_token/exchange`, `/accounts/get`,
 `/accounts/balance/get` (disabled to avoid paid refresh), `/transactions/sync`,
+`/transactions/recurring/get` (optional, with cadence fallback),
 `/investments/holdings/get`, `/item/get`, `/institutions/get_by_id`.
 `/sandbox/public_token/create` is an explicit exception only for a Sandbox-initialized
 client, exact Sandbox host and explicit `PLAID_ENV=sandbox`. Production, development,
@@ -77,7 +79,8 @@ holdings may share one Item. Pending transactions are excluded from publication.
 Private credentials/state are outside Git. Two future system users separate sync
 secrets/raw stripped records from the MCP's aggregate-only snapshot. Provider
 account names are fingerprinted for matching and replaced with generated labels;
-merchant, description, counterparty, routing/owner/contact fields are not persisted.
+descriptions, person counterparties, routing/owner/contact fields are not persisted.
+Only verified normalized business names are retained privately for merchant aggregates.
 No account numbers except optional last four; no financial writes exist. Link's
 CSRF/same-host helper binds 127.0.0.1:8768, warns on duplicate institutions and
 supports `--update` without creating a new Item. Production Trial's ten lifetime
@@ -126,3 +129,32 @@ are blocked in the browser and before exchange; named duplicate feeds are reject
 before token creation. The helper never asks for extra products. Close it after
 linking; do not expose it through a public tunnel. Avoid creating duplicate Trial
 Items: removing an Item never restores its lifetime slot.
+
+## Merchant totals and subscription candidates
+
+Use `merchant_totals(window="last_6_months", recurring_only=true)` for subscription
+candidates. Fixed UTC calendar windows are published at sync; there is no arbitrary
+day, account or merchant selector that could isolate a purchase. See
+[merchant privacy and cadence rules](docs/tools.md#merchant_totals).
+
+Only Plaid's normalized `merchant_name` is considered, with structured business
+identity evidence; descriptions are never fallback names. Venmo requires a matching
+VERY_HIGH-confidence merchant entity and online/in-store channel; unknown/person
+rows become peer transfers. Merchant rows are folded in SQL **before publication**.
+Every named merchant/window needs at least max(2, min_group_count) positive charges.
+Other with fewer charges has null amounts; no merchant dates or individual charges
+are stored in the aggregate snapshot. The median charge is a multi-charge statistic.
+
+`PLAIDMCP_BACKFILL_MERCHANTS=true` on a one-shot sync rebuilds transaction rows from
+an empty cursor, transactionally per existing Item. Failure retains the old rows
+and cursor. It never creates an Item or invokes Link, and never changes a private
+credential. It only re-reads history Plaid already holds. `days_requested` affects
+initialization only; existing initialized Items cannot expand their initial history
+by changing it. [Plaid's transaction history documentation](https://plaid.com/docs/transactions/).
+
+`production_audit.py` runs a Production-only sync to a candidate snapshot, audits
+its schema/fields/SQLite bytes and every tool against source strings retained only
+in memory, then atomically publishes. Failures report only phase/type/field context.
+`deploy/production_session.py` is a temporary sudo-owner session template; concrete
+operator restrictions, source pins, maintenance/install scripts and host settings
+belong in the private deployment repository. It adds no standing privilege.

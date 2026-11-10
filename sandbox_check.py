@@ -52,6 +52,8 @@ class AuditClient(Client):
         super().__init__()
         if self.env != 'sandbox': raise ValueError('Sandbox required')
         self.private_strings = set(self.credentials.values())
+        self.approved_business=set()
+        self.strict_strings=set()
         self.category_versions = set()
         self.categories = set()
         self.saw_v2_request = False
@@ -72,13 +74,20 @@ class AuditClient(Client):
             for key in ('account_id','persistent_account_id','name','official_name'):
                 if account.get(key): self.private_strings.add(account[key])
         for transaction in result.get('added',[]) + result.get('modified',[]):
+            from merchants import business_name
+            business=business_name(transaction)
+            if business:self.approved_business.add(business)
             if self.transaction_template is None: self.transaction_template = transaction
             for key in ('name','merchant_name','original_description','description','note','notes','payment_note','transaction_id','account_id'):
                 value = transaction.get(key)
                 if isinstance(value,str) and value.strip(): self.private_strings.add(value)
+            for key in ('note','notes','payment_note','username'):
+                if isinstance(transaction.get(key),str) and transaction[key]:self.strict_strings.add(transaction[key])
             for counterparty in transaction.get('counterparties',[]) or []:
                 for key in ('name','username'):
-                    if counterparty.get(key): self.private_strings.add(counterparty[key])
+                    if counterparty.get(key):
+                        self.private_strings.add(counterparty[key])
+                        if key=='username' or counterparty.get('type') in ('person','unknown'):self.strict_strings.add(counterparty[key])
             category = transaction.get('personal_finance_category') or {}
             if category.get('primary'): self.categories.add(category['primary'])
             version = transaction.get('personal_finance_category_version')
@@ -216,7 +225,7 @@ async def check_mcp(run, client):
                     if result.isError: raise CheckError('MCP tool failed')
                     value = result.structuredContent or json.loads(result.content[0].text)
                     check_fields(value)
-                    check_private_strings(json.dumps(value,ensure_ascii=False).encode(),client.private_strings)
+                    check_private_strings(json.dumps(value,ensure_ascii=False).encode(),client.private_strings-client.approved_business)
                     if not value['as_of'] or value['unreliable_sources']: raise CheckError('Snapshot is not ready')
                     return value
                 results = await asyncio.wait_for(asyncio.gather(*(call(n,args.get(n,{})) for n in TOOLS)),30)
@@ -227,14 +236,16 @@ async def check_mcp(run, client):
                 accounts=samples['list_accounts']['data']
                 if accounts: await call('cash_flow',{'start':start,'end':end,'account_ids':[accounts[0]['id']]})
         snapshot = run/'aggregate.sqlite'
-        check_private_strings(snapshot.read_bytes(),client.private_strings)
+        from production_audit import audit_snapshot
+        with sync.private_store() as private:
+            audit_snapshot(snapshot,private,client.private_strings,client.strict_strings,client.approved_business)
         with sqlite3.connect(snapshot) as db:
-            if {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")} != {'accounts','daily','holdings','sources'}:
+            if {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")} != {'accounts','daily','holdings','sources','merchants'}:
                 raise CheckError('Unexpected public tables')
-            for table in ('accounts','daily','holdings','sources'):
+            for table in ('accounts','daily','holdings','sources','merchants'):
                 for row in db.execute('SELECT * FROM '+table):
                     for cell in row:
-                        if isinstance(cell,str): check_private_strings(cell.encode(),client.private_strings)
+                        if isinstance(cell,str): check_private_strings(cell.encode(),client.private_strings-client.approved_business)
             if db.execute('PRAGMA integrity_check').fetchone()[0] != 'ok': raise CheckError('Snapshot integrity failed')
         if not client.saw_v2_request or not client.categories or 'UNKNOWN' in client.categories:
             raise CheckError('PFCv2 data missing')
