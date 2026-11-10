@@ -22,16 +22,17 @@ def business_name(transaction,is_venmo=False):
     from descriptors import clean_business_label,descriptor_label,rail_kind,person_like
     raw_name=transaction.get('merchant_name')
     raw=transaction.get('original_description') or transaction.get('name') or ''
-    if rail_kind(raw) or (raw_name and person_like(raw_name)):return None
-    name=(descriptor_label({'name':raw_name,'location':transaction.get('location')}) or clean_business_label(raw_name,transaction.get('location'))) if raw_name else descriptor_label(transaction)
+    if any(rail_kind(value) or person_like(value) for value in (transaction.get('original_description'),transaction.get('name'),raw_name) if value):return None
+    known_name=descriptor_label({'name':raw_name}) if raw_name else None
+    name=(known_name or clean_business_label(raw_name,transaction.get('location'))) if raw_name else descriptor_label(transaction)
     pfc=transaction.get('personal_finance_category') or {}
     primary=pfc.get('primary','UNKNOWN');detail=pfc.get('detailed','UNKNOWN')
     if not name or (primary in ('INCOME','TRANSFER_IN','TRANSFER_OUT') or (primary=='UNKNOWN' and raw_name)) or detail=='LOAN_PAYMENTS_CREDIT_CARD_PAYMENT':return None
     parties=transaction.get('counterparties') or []
-    if any(p.get('type') not in ('merchant','financial_institution','payment_app','marketplace','payment_terminal','income_source') for p in parties):return None
+    if any(p.get('type') not in ('merchant','financial_institution','payment_app','marketplace','payment_terminal','income_source') and not (p.get('type') in (None,'unknown') and known_name and descriptor_label({'name':p.get('name')})==known_name) for p in parties):return None
     matches=[p for p in parties if raw_name and p.get('type')=='merchant' and normalized_name(p.get('name')) and normalized_name(p['name']).casefold()==normalized_name(raw_name).casefold() and p.get('confidence_level') in ('HIGH','VERY_HIGH')]
     entity=transaction.get('merchant_entity_id')
-    if raw_name and not (matches or entity):return None
+    if raw_name and not (matches or entity or known_name):return None
     return name
 
 

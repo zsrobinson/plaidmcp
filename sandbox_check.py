@@ -87,7 +87,7 @@ class AuditClient(Client):
                 for key in ('name','username'):
                     if counterparty.get(key):
                         self.private_strings.add(counterparty[key])
-                        if key=='username' or counterparty.get('type') in ('person','unknown'):self.strict_strings.add(counterparty[key])
+                        if key=='username' or (counterparty.get('type') in ('person','unknown') and not (business and counterparty.get('type')=='unknown' and __import__('descriptors').descriptor_label({'name':counterparty.get('name')})==business)):self.strict_strings.add(counterparty[key])
             category = transaction.get('personal_finance_category') or {}
             if category.get('primary'): self.categories.add(category['primary'])
             version = transaction.get('personal_finance_category_version')

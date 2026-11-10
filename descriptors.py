@@ -67,15 +67,21 @@ def clean_business_label(value,location=None):
 
 
 def descriptor_label(transaction):
- # Missing merchant name only. Unknown free text is never promoted to a label.
- raw=transaction.get('original_description') or transaction.get('name') or ''
+ # Both fields stay private. Reject conflicting brands or any personal/rail evidence.
+ values=[value for value in (transaction.get('original_description'),transaction.get('name')) if value]
+ if any(person_like(value) or rail_kind(value) for value in values):return None
+ labels={label for value in values if (label:=single_descriptor_label(value,transaction.get('location')))}
+ return next(iter(labels)) if len(labels)==1 else None
+
+
+def single_descriptor_label(raw,location=None):
  if person_like(raw) or rail_kind(raw):return None
  # Keep a public billing-domain brand token, but discard all URL paths/query text.
  for key in BRANDS:
   raw=re.sub(r'(?:https?://)?(?:www\.)?\b'+key+r'\.COM(?:/[^\s]*)?',key,raw,flags=re.I)
  for host,replacement in (('CLAUDE.AI','ANTHROPIC CLAUDE'),('CHATGPT.COM','OPENAI CHATGPT')):
   raw=re.sub(r'(?:https?://)?(?:www\.)?'+re.escape(host)+r'(?:/[^\s]*)?',replacement,raw,flags=re.I)
- text=clean_business_label(raw,transaction.get('location'))
+ text=clean_business_label(raw,location)
  if not text:return None
  text=re.sub(r'\b(?:CHECKCARD|DEBIT|CREDIT|CARD|PURCHASE|RECURRING|POS|VISA|MASTERCARD)\b',' ',text,flags=re.I)
  # Only generic well-known location suffixes, or structured provider locations above.

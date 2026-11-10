@@ -111,6 +111,7 @@ def main():
     import sync
     from plaid_client import Client
     from merchants import business_name
+    from descriptors import descriptor_label
     captured=set();strict=set();approved=set();recurring_support=[]
     private_root=Path(os.environ.get('PLAIDMCP_PRIVATE','/var/lib/plaidmcp-private'))
     public=Path(os.environ.get('PLAIDMCP_PUBLIC','/var/lib/plaidmcp/aggregate.sqlite')).resolve()
@@ -141,7 +142,7 @@ def main():
                     for key in ('name','username'):
                         if other.get(key):
                             captured.add(other[key])
-                            if key=='username' or other.get('type') not in ('merchant','financial_institution','payment_app','marketplace','payment_terminal','income_source'):strict.add(other[key])
+                            if key=='username' or (other.get('type') not in ('merchant','financial_institution','payment_app','marketplace','payment_terminal','income_source') and not (business and other.get('type') in (None,'unknown') and descriptor_label({'name':other.get('name')})==business)):strict.add(other[key])
             for stream in result.get('outflow_streams',[])+result.get('inflow_streams',[]):
                 for key in ('description','stream_id','account_id'):
                     if stream.get(key):captured.add(stream[key])

@@ -71,3 +71,24 @@ def test_raw_descriptor_not_in_private_public_or_any_response(snapshot):
 def test_generic_billing_variations(descriptor):
  from merchants import business_name
  assert business_name({'name':descriptor,'merchant_name':None})=='Adobe'
+
+
+def test_fallback_considers_both_private_description_fields_without_conflicts():
+ from merchants import business_name
+ t={'merchant_name':None,'original_description':'DEBIT CARD PURCHASE','name':'ADOBE *CREATIVE CLOUD',
+    'personal_finance_category':{'primary':'GENERAL_MERCHANDISE'}}
+ assert business_name(t)=='Adobe'
+ t['original_description']='GITHUB COPILOT'
+ assert business_name(t) is None
+ t['original_description']='ZELLE JOHN SMITH'
+ assert business_name(t) is None
+
+
+def test_curated_provider_brand_needs_no_extra_entity_but_person_still_rejected():
+ from merchants import business_name
+ t={'merchant_name':'Adobe','personal_finance_category':{'primary':'GENERAL_MERCHANDISE'}}
+ assert business_name(t)=='Adobe'
+ t['counterparties']=[{'type':'person','name':'Adobe'}]
+ assert business_name(t) is None
+ t['counterparties']=[{'type':'unknown','name':'John Smith'}]
+ assert business_name(t) is None
