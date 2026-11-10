@@ -12,25 +12,45 @@ HTML = """<!doctype html><meta charset=utf-8><title>Link money account</title>
 <p>Production Trial: only 10 Items total; removing one does not recover a slot.
 Use update mode for a linked institution. Close this helper after linking.</p>
 <button id=link>Open Plaid Link</button>
+<p id=status role=status>Ready to open secure Plaid Link.</p>
 <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
 <script>
-const csrf=CSRF;
-const expected=EXPECTED;
-const expectedName=EXPECTED_NAME;
-const linked=LINKED;
-const blockedNames=BLOCKED_NAMES;
+const csrf=__CSRF_VALUE__;
+const expected=__INSTITUTION_VALUE__;
+const expectedName=__NAME_VALUE__;
+const linked=__LINKED_VALUE__;
+const blockedNames=__BLOCKED_VALUE__;
 const normalize=s=>(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
 let handler;
+const status=document.getElementById('status');
 document.getElementById('link').onclick=async()=>{
+ try {
+ status.textContent='Preparing secure Plaid Link…';
+ if(typeof Plaid==='undefined'){status.textContent='Plaid script did not load. Check the browser connection to cdn.plaid.com.';return;}
  const r=await fetch('/token',{method:'POST',headers:{'X-CSRF':csrf}});
- const data=await r.json(); if(!r.ok){alert(data.error);return;}
+ const data=await r.json(); if(!r.ok){status.textContent=data.error_code?'Plaid rejected token creation: '+data.error_code:data.error;return;}
  handler=Plaid.create({token:data.link_token,
+ onLoad:()=>{status.textContent='Plaid Link is ready.';},
+ onExit:(error)=>{status.textContent=error?.error_code?'Plaid Link closed: '+error.error_code:'Plaid Link closed.';},
  onEvent:(event,meta)=>{if(event==='SELECT_INSTITUTION' && ((expected && meta.institution_id!==expected) || (expectedName && !normalize(meta.institution_name).includes(normalize(expectedName))) || linked.includes(meta.institution_id) || blockedNames.some(n=>normalize(meta.institution_name).includes(n)))){handler.exit({force:true});alert('Wrong or already linked institution. Close this window; restart or use update mode instead of creating another Item.');}},
  onSuccess:async(public_token,metadata)=>{
  const r=await fetch('/exchange',{method:'POST',headers:{'X-CSRF':csrf,'Content-Type':'application/json'},body:JSON.stringify({public_token,institution_id:metadata.institution.institution_id,institution_name:metadata.institution.name})});
- alert(r.ok?'Linked. Close this helper.':'Link failed; inspect sync status.');
+ status.textContent=r.ok?'Linked. Close this helper.':'Link failed; check helper status before retrying.';
+ alert(status.textContent);
  }}); handler.open();
+ } catch {status.textContent='Unable to open Link. Check the helper status and browser connection before retrying.';}
 };</script>"""
+
+def render_page(csrf,institution,institution_name,linked,csv_source):
+    page=HTML
+    values={'__CSRF_VALUE__':csrf,'__INSTITUTION_VALUE__':institution,
+        '__NAME_VALUE__':institution_name,'__LINKED_VALUE__':linked,
+        '__BLOCKED_VALUE__':['venmo'] if csv_source else []}
+    for marker,value in values.items():
+        assert page.count(marker)==1
+        page=page.replace(marker,json.dumps(value).replace('<','\\u003c'))
+    return page
+
 
 def main():
     parser=argparse.ArgumentParser()
@@ -61,17 +81,21 @@ def main():
         class Handler(http.server.BaseHTTPRequestHandler):
             completed=False
             issued=False
+            stage='ready'
+            last_error_code=None
             def log_message(self,*args): pass
             def valid(self):
                 return self.headers.get('Host') in ('127.0.0.1:8768','localhost:8768') and self.headers.get('Origin') in (None,'http://127.0.0.1:8768','http://localhost:8768')
             def reply(self,status,data,kind='application/json'):
                 body=data.encode() if isinstance(data,str) else json.dumps(data).encode()
                 self.send_response(status); self.send_header('Content-Type',kind)
-                self.send_header('Cache-Control','no-store'); self.send_header('Content-Length',str(len(body)))
+                self.send_header('Cache-Control','no-store'); self.send_header('Referrer-Policy','no-referrer'); self.send_header('Content-Length',str(len(body)))
                 self.end_headers(); self.wfile.write(body)
             def do_GET(self):
-                if not self.valid() or self.path!='/': return self.reply(403,{'error':'Forbidden'})
-                self.reply(200,HTML.replace('CSRF',json.dumps(csrf)).replace('EXPECTED_NAME',json.dumps(args.institution_name)).replace('EXPECTED',json.dumps(args.institution)).replace('LINKED',json.dumps(linked)).replace('BLOCKED_NAMES',json.dumps(['venmo'] if csv_source else [])),'text/html')
+                if not self.valid(): return self.reply(403,{'error':'Forbidden'})
+                if self.path=='/status': return self.reply(200,{'environment':getattr(client,'env','test'),'stage':Handler.stage,'link_token_created':Handler.issued,'last_error_code':Handler.last_error_code})
+                if self.path!='/': return self.reply(404,{'error':'Not found'})
+                self.reply(200,render_page(csrf,args.institution,args.institution_name,linked,csv_source),'text/html')
             def do_POST(self):
                 if not self.valid() or not hmac.compare_digest(self.headers.get('X-CSRF',''),csrf): return self.reply(403,{'error':'Forbidden'})
                 if Handler.completed: return self.reply(409,{'error':'Already completed; close helper'})
@@ -81,8 +105,11 @@ def main():
                         payload={'client_name':'Plaid MCP','user':{'client_user_id':'local-owner'},'country_codes':['US'],'language':'en'}
                         if existing: payload['access_token']=existing[1]
                         else: payload['products']=[args.product]
+                        Handler.stage='link_token_create'
                         result=client.call('/link/token/create',**payload)
                         Handler.issued=True
+                        Handler.stage='link_token_ready'
+                        Handler.last_error_code=None
                         return self.reply(200,{'link_token':result['link_token']})
                     if self.path!='/exchange' or not Handler.issued: return self.reply(404,{'error':'Unknown request'})
                     length=int(self.headers.get('Content-Length','0'))
@@ -98,14 +125,21 @@ def main():
                     if 'venmo' in name.casefold() and db.execute("SELECT 1 FROM items WHERE id='venmo-csv'").fetchone():
                         return self.reply(409,{'error':'Venmo CSV source already exists; choose one source'})
                     if not existing:
+                        Handler.stage='public_token_exchange'
                         result=client.call('/item/public_token/exchange',public_token=data['public_token'])
                         # Persist immediately: a later metadata failure must not lose an already-created Item.
                         with db:
                             db.execute('INSERT INTO credentials VALUES(?,?,?,?,NULL)',(result['item_id'],institution,result['access_token'],args.product))
                             db.execute('INSERT INTO items VALUES(?,?,NULL,?)',(result['item_id'],name or institution,'INITIAL_SYNC_REQUIRED'))
                     Handler.completed=True
+                    Handler.stage='linked'
                     return self.reply(200,{'linked':True})
-                except Exception: self.reply(400,{'error':'Link failed; no request details logged'})
+                except PlaidError as error:
+                    Handler.last_error_code=error.code
+                    self.reply(502,{'error':'Plaid request rejected; no request details logged','error_code':error.code})
+                except Exception:
+                    Handler.last_error_code='HELPER_ERROR'
+                    self.reply(400,{'error':'Link failed; no request details logged'})
         print('Open http://127.0.0.1:8768 through an SSH tunnel. Press Ctrl-C after linking.')
         http.server.HTTPServer(('127.0.0.1',8768),Handler).serve_forever()
 
