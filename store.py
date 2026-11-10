@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS accounts(id TEXT PRIMARY KEY, item TEXT, name TEXT, m
 CREATE TABLE IF NOT EXISTS transactions(id TEXT PRIMARY KEY, item TEXT, date TEXT, primary_category TEXT, detailed_category TEXT, currency TEXT, amount REAL, pending INTEGER);
 CREATE TABLE IF NOT EXISTS venmo_rows(date TEXT, cents INTEGER, direction TEXT CHECK(direction IN ('in','out')), category TEXT CHECK(category IN ('peer_sent','peer_received','purchase','bank_transfer','fee')));
 CREATE TABLE IF NOT EXISTS recurring_merchants(item TEXT,merchant TEXT COLLATE NOCASE,currency TEXT,frequency TEXT,last_charged_month TEXT,active INTEGER,PRIMARY KEY(item,merchant));
+CREATE TABLE IF NOT EXISTS internal_matches(item TEXT,transaction_ref TEXT,paired_item TEXT,paired_ref TEXT,PRIMARY KEY(item,transaction_ref));
 CREATE TABLE IF NOT EXISTS holdings(item TEXT, account TEXT, ticker TEXT, name TEXT, type TEXT, currency TEXT, quantity REAL, value REAL, cost_basis REAL);
 """
 
@@ -24,6 +25,8 @@ def connect(path):
     columns = {row[1] for row in db.execute('PRAGMA table_info(transactions)')}
     if 'account' not in columns: db.execute('ALTER TABLE transactions ADD COLUMN account TEXT')
     if 'merchant' not in columns: db.execute('ALTER TABLE transactions ADD COLUMN merchant TEXT')
+    for column in ('merchant_source','flow_kind'):
+        if column not in columns:db.execute('ALTER TABLE transactions ADD COLUMN '+column+' TEXT')
     db.executescript("""
     CREATE TABLE IF NOT EXISTS account_identity(ref TEXT PRIMARY KEY, institution TEXT, type TEXT, subtype TEXT, name_key TEXT);
     CREATE TABLE IF NOT EXISTS account_alias(provider_ref TEXT, item TEXT, ref TEXT, PRIMARY KEY(provider_ref,item));
@@ -81,8 +84,15 @@ def ingest_transactions(db, item, page):
         institution = db.execute('SELECT institution FROM items WHERE id=?',(item,)).fetchone()
         # Business eligibility uses structured Plaid evidence; never descriptions/notes.
         from merchants import business_name
+        from descriptors import rail_kind
         is_venmo = institution and 'venmo' in institution[0].casefold()
         merchant=business_name(t,bool(is_venmo))
+        merchant_source=('provider_name' if t.get('merchant_name') else 'descriptor_fallback') if merchant else 'unknown'
+        rail=rail_kind(t.get('original_description') or t.get('name') or '')
+        if rail in ('bank_transfer','peer_payment'):
+            primary='TRANSFER_IN' if t['amount']<0 else 'TRANSFER_OUT'
+            detailed=primary+('_PEER_TRANSFER' if rail=='peer_payment' else '_ACCOUNT_TRANSFER')
+        flow_kind='bank_transfer' if primary in ('TRANSFER_IN','TRANSFER_OUT') or detailed=='LOAN_PAYMENTS_CREDIT_CARD_PAYMENT' else 'activity'
         if is_venmo and merchant is None and primary not in ('TRANSFER_IN','TRANSFER_OUT','BANK_FEES'):
             primary='TRANSFER_IN' if t['amount']<0 else 'TRANSFER_OUT'
             detailed=primary+'_PEER_TRANSFER'
@@ -91,8 +101,9 @@ def ingest_transactions(db, item, page):
         if primary in ('TRANSFER_IN','TRANSFER_OUT') and (explicit_peer or
                 (is_venmo and detailed in ('TRANSFER_IN_OTHER_TRANSFER','TRANSFER_OUT_OTHER_TRANSFER','UNKNOWN'))):
             detailed = primary + '_PEER_TRANSFER'
-        db.execute("INSERT OR REPLACE INTO transactions(id,item,date,primary_category,detailed_category,currency,amount,pending,account,merchant) VALUES(?,?,?,?,?,?,?,?,?,?)", (t['transaction_id'], item,
-            t['date'], primary, detailed, t.get('iso_currency_code') or t.get('unofficial_currency_code') or 'UNKNOWN', t['amount'], bool(t.get('pending')),t.get('account_id'),merchant))
+        if detailed.endswith(('_PEER_TRANSFER','_PEER_TO_PEER')):flow_kind='peer_payment'
+        db.execute("INSERT OR REPLACE INTO transactions(id,item,date,primary_category,detailed_category,currency,amount,pending,account,merchant,merchant_source,flow_kind) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)", (t['transaction_id'], item,
+            t['date'], primary, detailed, t.get('iso_currency_code') or t.get('unofficial_currency_code') or 'UNKNOWN', t['amount'], bool(t.get('pending')),t.get('account_id'),merchant,merchant_source,flow_kind))
     for t in page.get('removed', []):
         db.execute("DELETE FROM transactions WHERE id=? AND item=?", (t['transaction_id'],item))
 
@@ -106,6 +117,8 @@ def ingest_holdings(db, item, data):
 def publish(db, path, sources=None):
     """Publish only the common source interface; no provider fields in public schemas."""
     from sources import snapshot_sources, PUBLIC_SCHEMA
+    from transfers import match_internal
+    match_internal(db)
     path = Path(path); path.parent.mkdir(parents=True, exist_ok=True)
     fd,temp = tempfile.mkstemp(dir=path.parent,prefix='.aggregate-'); os.close(fd)
     out = sqlite3.connect(temp)
@@ -124,6 +137,7 @@ def publish(db, path, sources=None):
                             raise ValueError('Conflicting active sources claim the same account; choose one source')
                         if prior and prior[0]=='available' and row[-1]!='available': continue
                         verb='INSERT OR REPLACE INTO '
+                    if table=='daily' and len(row)==13:row=(*row,0,0,0,0,0,0)
                     out.execute(verb+table+' VALUES('+','.join('?' for _ in row)+')',row)
         publish_merchants(db,out)
         out.commit(); out.close()

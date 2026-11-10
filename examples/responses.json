@@ -1,12 +1,12 @@
 {
   "overview": {
     "as_of": {
-      "src_cf09181a734043b18d4120c727ba6208": "2026-11-10T12:00:00+00:00",
-      "src_5d706ad09c314137a89f90bb3928e7d6": "2026-11-10T12:00:00+00:00"
+      "src_bffbbeacc8384a67b985840e4528b1d6": "2026-11-10T12:00:00+00:00",
+      "src_0c90b0a5f41846e78fe3bd033e58bb3e": "2026-11-10T12:00:00+00:00"
     },
     "sources": [
       {
-        "id": "src_cf09181a734043b18d4120c727ba6208",
+        "id": "src_bffbbeacc8384a67b985840e4528b1d6",
         "institution": "Example Bank",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -18,7 +18,7 @@
         "freshness": "current"
       },
       {
-        "id": "src_5d706ad09c314137a89f90bb3928e7d6",
+        "id": "src_0c90b0a5f41846e78fe3bd033e58bb3e",
         "institution": "Example Broker",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -94,6 +94,15 @@
           "transfers_out": 0.0,
           "net": 890.0,
           "count": 4,
+          "payroll": 1000.0,
+          "interest": 0.0,
+          "refunds": 10.0,
+          "other_income": 0.0,
+          "p2p_received": 0.0,
+          "p2p_sent": 0.0,
+          "internal_transfers_in": 0.0,
+          "internal_transfers_out": 0.0,
+          "internal_transfers_net": 0.0,
           "average_per_month": 330.0,
           "average_per_week": 77.0
         }
@@ -107,6 +116,15 @@
           "transfers_out": 0.0,
           "net": -80.0,
           "count": 1,
+          "payroll": 0.0,
+          "interest": 0.0,
+          "refunds": 0.0,
+          "other_income": 0.0,
+          "p2p_received": 0.0,
+          "p2p_sent": 0.0,
+          "internal_transfers_in": 0.0,
+          "internal_transfers_out": 0.0,
+          "internal_transfers_net": 0.0,
           "average_per_month": 80.0,
           "average_per_week": 18.06
         }
@@ -120,6 +138,15 @@
           "transfers_out": 0.0,
           "net": -80.0,
           "count": 1,
+          "payroll": 0.0,
+          "interest": 0.0,
+          "refunds": 0.0,
+          "other_income": 0.0,
+          "p2p_received": 0.0,
+          "p2p_sent": 0.0,
+          "internal_transfers_in": 0.0,
+          "internal_transfers_out": 0.0,
+          "internal_transfers_net": 0.0,
           "average_per_month": 248.0,
           "average_per_week": 56.0
         }
@@ -163,8 +190,17 @@
           "transfers_out": 0.0,
           "net": -110.0,
           "count": 3,
+          "payroll": 0.0,
+          "interest": 0.0,
+          "refunds": 10.0,
+          "other_income": 0.0,
+          "p2p_received": 0.0,
+          "p2p_sent": 0.0,
+          "internal_transfers_in": 0.0,
+          "internal_transfers_out": 0.0,
           "average_per_month": 330.0,
-          "average_per_week": 77.0
+          "average_per_week": 77.0,
+          "internal_transfers_net": 0.0
         },
         {
           "group": "income",
@@ -176,8 +212,17 @@
           "transfers_out": 0.0,
           "net": 1000.0,
           "count": 1,
+          "payroll": 1000.0,
+          "interest": 0.0,
+          "refunds": 0.0,
+          "other_income": 0.0,
+          "p2p_received": 0.0,
+          "p2p_sent": 0.0,
+          "internal_transfers_in": 0.0,
+          "internal_transfers_out": 0.0,
           "average_per_month": 0.0,
-          "average_per_week": 0.0
+          "average_per_week": 0.0,
+          "internal_transfers_net": 0.0
         }
       ],
       "start": "2026-11-01",
@@ -186,12 +231,12 @@
   },
   "list_accounts": {
     "as_of": {
-      "src_cf09181a734043b18d4120c727ba6208": "2026-11-10T12:00:00+00:00",
-      "src_5d706ad09c314137a89f90bb3928e7d6": "2026-11-10T12:00:00+00:00"
+      "src_bffbbeacc8384a67b985840e4528b1d6": "2026-11-10T12:00:00+00:00",
+      "src_0c90b0a5f41846e78fe3bd033e58bb3e": "2026-11-10T12:00:00+00:00"
     },
     "sources": [
       {
-        "id": "src_cf09181a734043b18d4120c727ba6208",
+        "id": "src_bffbbeacc8384a67b985840e4528b1d6",
         "institution": "Example Bank",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -203,7 +248,7 @@
         "freshness": "current"
       },
       {
-        "id": "src_5d706ad09c314137a89f90bb3928e7d6",
+        "id": "src_0c90b0a5f41846e78fe3bd033e58bb3e",
         "institution": "Example Broker",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -218,8 +263,8 @@
     "unreliable_sources": [],
     "data": [
       {
-        "id": "acct_2cc17308de4c4bbcb78e235b298ab04f",
-        "display_name": "Checking 8ab04f",
+        "id": "acct_15b6f8f2876b48c89d3415bb8df64139",
+        "display_name": "Checking f64139",
         "institution": "Example Bank",
         "type": "depository",
         "subtype": "checking",
@@ -232,15 +277,15 @@
           "spending"
         ],
         "availability": "available",
-        "source_id": "src_cf09181a734043b18d4120c727ba6208",
+        "source_id": "src_bffbbeacc8384a67b985840e4528b1d6",
         "source_kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
         "freshness": "current",
         "status": "healthy"
       },
       {
-        "id": "acct_06b9f81eb39941cebbe08da8b9adbcb7",
-        "display_name": "Credit Card adbcb7",
+        "id": "acct_420b5427b9a246c3a2f8dea6a0edb1f6",
+        "display_name": "Credit Card edb1f6",
         "institution": "Example Bank",
         "type": "credit",
         "subtype": "credit card",
@@ -253,15 +298,15 @@
           "spending"
         ],
         "availability": "available",
-        "source_id": "src_cf09181a734043b18d4120c727ba6208",
+        "source_id": "src_bffbbeacc8384a67b985840e4528b1d6",
         "source_kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
         "freshness": "current",
         "status": "healthy"
       },
       {
-        "id": "acct_9d367eed53f34b8f9ce84a325dd88fab",
-        "display_name": "Brokerage d88fab",
+        "id": "acct_cd2d39e66b514dcf9b09525cd6cf22a9",
+        "display_name": "Brokerage cf22a9",
         "institution": "Example Broker",
         "type": "investment",
         "subtype": "brokerage",
@@ -274,7 +319,7 @@
           "holdings"
         ],
         "availability": "available",
-        "source_id": "src_5d706ad09c314137a89f90bb3928e7d6",
+        "source_id": "src_0c90b0a5f41846e78fe3bd033e58bb3e",
         "source_kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
         "freshness": "current",
@@ -284,12 +329,12 @@
   },
   "list_sources": {
     "as_of": {
-      "src_cf09181a734043b18d4120c727ba6208": "2026-11-10T12:00:00+00:00",
-      "src_5d706ad09c314137a89f90bb3928e7d6": "2026-11-10T12:00:00+00:00"
+      "src_bffbbeacc8384a67b985840e4528b1d6": "2026-11-10T12:00:00+00:00",
+      "src_0c90b0a5f41846e78fe3bd033e58bb3e": "2026-11-10T12:00:00+00:00"
     },
     "sources": [
       {
-        "id": "src_cf09181a734043b18d4120c727ba6208",
+        "id": "src_bffbbeacc8384a67b985840e4528b1d6",
         "institution": "Example Bank",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -301,7 +346,7 @@
         "freshness": "current"
       },
       {
-        "id": "src_5d706ad09c314137a89f90bb3928e7d6",
+        "id": "src_0c90b0a5f41846e78fe3bd033e58bb3e",
         "institution": "Example Broker",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -316,7 +361,7 @@
     "unreliable_sources": [],
     "data": [
       {
-        "id": "src_cf09181a734043b18d4120c727ba6208",
+        "id": "src_bffbbeacc8384a67b985840e4528b1d6",
         "institution": "Example Bank",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -328,7 +373,7 @@
         "freshness": "current"
       },
       {
-        "id": "src_5d706ad09c314137a89f90bb3928e7d6",
+        "id": "src_0c90b0a5f41846e78fe3bd033e58bb3e",
         "institution": "Example Broker",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -343,12 +388,12 @@
   },
   "list_categories": {
     "as_of": {
-      "src_cf09181a734043b18d4120c727ba6208": "2026-11-10T12:00:00+00:00",
-      "src_5d706ad09c314137a89f90bb3928e7d6": "2026-11-10T12:00:00+00:00"
+      "src_bffbbeacc8384a67b985840e4528b1d6": "2026-11-10T12:00:00+00:00",
+      "src_0c90b0a5f41846e78fe3bd033e58bb3e": "2026-11-10T12:00:00+00:00"
     },
     "sources": [
       {
-        "id": "src_cf09181a734043b18d4120c727ba6208",
+        "id": "src_bffbbeacc8384a67b985840e4528b1d6",
         "institution": "Example Bank",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -360,7 +405,7 @@
         "freshness": "current"
       },
       {
-        "id": "src_5d706ad09c314137a89f90bb3928e7d6",
+        "id": "src_0c90b0a5f41846e78fe3bd033e58bb3e",
         "institution": "Example Broker",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -408,12 +453,12 @@
   },
   "cash_flow": {
     "as_of": {
-      "src_cf09181a734043b18d4120c727ba6208": "2026-11-10T12:00:00+00:00",
-      "src_5d706ad09c314137a89f90bb3928e7d6": "2026-11-10T12:00:00+00:00"
+      "src_bffbbeacc8384a67b985840e4528b1d6": "2026-11-10T12:00:00+00:00",
+      "src_0c90b0a5f41846e78fe3bd033e58bb3e": "2026-11-10T12:00:00+00:00"
     },
     "sources": [
       {
-        "id": "src_cf09181a734043b18d4120c727ba6208",
+        "id": "src_bffbbeacc8384a67b985840e4528b1d6",
         "institution": "Example Bank",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -425,7 +470,7 @@
         "freshness": "current"
       },
       {
-        "id": "src_5d706ad09c314137a89f90bb3928e7d6",
+        "id": "src_0c90b0a5f41846e78fe3bd033e58bb3e",
         "institution": "Example Broker",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -453,8 +498,17 @@
           "transfers_out": 0.0,
           "net": 890.0,
           "count": 4,
+          "payroll": 1000.0,
+          "interest": 0.0,
+          "refunds": 10.0,
+          "other_income": 0.0,
+          "p2p_received": 0.0,
+          "p2p_sent": 0.0,
+          "internal_transfers_in": 0.0,
+          "internal_transfers_out": 0.0,
           "average_per_month": 110.0,
-          "average_per_week": 25.67
+          "average_per_week": 25.67,
+          "internal_transfers_net": 0.0
         }
       ],
       "totals": [
@@ -466,6 +520,15 @@
           "transfers_out": 0.0,
           "net": 890.0,
           "count": 4,
+          "payroll": 1000.0,
+          "interest": 0.0,
+          "refunds": 10.0,
+          "other_income": 0.0,
+          "p2p_received": 0.0,
+          "p2p_sent": 0.0,
+          "internal_transfers_in": 0.0,
+          "internal_transfers_out": 0.0,
+          "internal_transfers_net": 0.0,
           "average_per_month": 110.0,
           "average_per_week": 25.67
         }
@@ -475,12 +538,12 @@
   },
   "balance_summary": {
     "as_of": {
-      "src_cf09181a734043b18d4120c727ba6208": "2026-11-10T12:00:00+00:00",
-      "src_5d706ad09c314137a89f90bb3928e7d6": "2026-11-10T12:00:00+00:00"
+      "src_bffbbeacc8384a67b985840e4528b1d6": "2026-11-10T12:00:00+00:00",
+      "src_0c90b0a5f41846e78fe3bd033e58bb3e": "2026-11-10T12:00:00+00:00"
     },
     "sources": [
       {
-        "id": "src_cf09181a734043b18d4120c727ba6208",
+        "id": "src_bffbbeacc8384a67b985840e4528b1d6",
         "institution": "Example Bank",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -492,7 +555,7 @@
         "freshness": "current"
       },
       {
-        "id": "src_5d706ad09c314137a89f90bb3928e7d6",
+        "id": "src_0c90b0a5f41846e78fe3bd033e58bb3e",
         "institution": "Example Broker",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -561,12 +624,12 @@
   },
   "holdings": {
     "as_of": {
-      "src_cf09181a734043b18d4120c727ba6208": "2026-11-10T12:00:00+00:00",
-      "src_5d706ad09c314137a89f90bb3928e7d6": "2026-11-10T12:00:00+00:00"
+      "src_bffbbeacc8384a67b985840e4528b1d6": "2026-11-10T12:00:00+00:00",
+      "src_0c90b0a5f41846e78fe3bd033e58bb3e": "2026-11-10T12:00:00+00:00"
     },
     "sources": [
       {
-        "id": "src_cf09181a734043b18d4120c727ba6208",
+        "id": "src_bffbbeacc8384a67b985840e4528b1d6",
         "institution": "Example Bank",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -578,7 +641,7 @@
         "freshness": "current"
       },
       {
-        "id": "src_5d706ad09c314137a89f90bb3928e7d6",
+        "id": "src_0c90b0a5f41846e78fe3bd033e58bb3e",
         "institution": "Example Broker",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -620,12 +683,12 @@
   },
   "merchant_totals": {
     "as_of": {
-      "src_cf09181a734043b18d4120c727ba6208": "2026-11-10T12:00:00+00:00",
-      "src_5d706ad09c314137a89f90bb3928e7d6": "2026-11-10T12:00:00+00:00"
+      "src_bffbbeacc8384a67b985840e4528b1d6": "2026-11-10T12:00:00+00:00",
+      "src_0c90b0a5f41846e78fe3bd033e58bb3e": "2026-11-10T12:00:00+00:00"
     },
     "sources": [
       {
-        "id": "src_cf09181a734043b18d4120c727ba6208",
+        "id": "src_bffbbeacc8384a67b985840e4528b1d6",
         "institution": "Example Bank",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -637,7 +700,7 @@
         "freshness": "current"
       },
       {
-        "id": "src_5d706ad09c314137a89f90bb3928e7d6",
+        "id": "src_0c90b0a5f41846e78fe3bd033e58bb3e",
         "institution": "Example Broker",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -653,7 +716,23 @@
     "data": {
       "window": "last_6_months",
       "recurring_only": false,
-      "merchants": []
+      "merchants": [
+        {
+          "merchant": "Other",
+          "currency": "USD",
+          "total": null,
+          "purchase_count": 1,
+          "recurring": null,
+          "frequency": null,
+          "typical_charge": null,
+          "last_charged_month": null,
+          "active": null,
+          "recurring_method": null,
+          "merchant_source": "unknown",
+          "monthly_average": null,
+          "suppressed": true
+        }
+      ]
     }
   }
 }

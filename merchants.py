@@ -5,7 +5,7 @@ import re
 import unicodedata
 
 WINDOWS=('month_to_date','last_month','last_3_months','last_6_months','last_12_months','all_history')
-MERCHANT_SCHEMA='''CREATE TABLE merchants(window TEXT,merchant TEXT,currency TEXT,total REAL,purchase_count INTEGER,months REAL,recurring INTEGER,frequency TEXT,typical_charge REAL,last_charged_month TEXT,active INTEGER,recurring_method TEXT,PRIMARY KEY(window,merchant,currency));'''
+MERCHANT_SCHEMA='''CREATE TABLE merchants(window TEXT,merchant TEXT,currency TEXT,total REAL,purchase_count INTEGER,months REAL,recurring INTEGER,frequency TEXT,typical_charge REAL,last_charged_month TEXT,active INTEGER,recurring_method TEXT,merchant_source TEXT,PRIMARY KEY(window,merchant,currency));'''
 
 
 def normalized_name(value):
@@ -17,19 +17,21 @@ def normalized_name(value):
 
 
 def business_name(transaction,is_venmo=False):
-    """Never fall back to name/description. Venmo requires explicit business evidence."""
-    name=normalized_name(transaction.get('merchant_name'))
+    """Normalize provider business names; only curated missing-name fallback. No Venmo."""
+    if is_venmo:return None
+    from descriptors import clean_business_label,descriptor_label,rail_kind,person_like
+    raw_name=transaction.get('merchant_name')
+    raw=transaction.get('original_description') or transaction.get('name') or ''
+    if rail_kind(raw) or (raw_name and person_like(raw_name)):return None
+    name=(descriptor_label({'name':raw_name,'location':transaction.get('location')}) or clean_business_label(raw_name,transaction.get('location'))) if raw_name else descriptor_label(transaction)
     pfc=transaction.get('personal_finance_category') or {}
     primary=pfc.get('primary','UNKNOWN');detail=pfc.get('detailed','UNKNOWN')
-    if not name or primary in ('INCOME','TRANSFER_IN','TRANSFER_OUT','UNKNOWN') or detail=='LOAN_PAYMENTS_CREDIT_CARD_PAYMENT':return None
+    if not name or (primary in ('INCOME','TRANSFER_IN','TRANSFER_OUT') or (primary=='UNKNOWN' and raw_name)) or detail=='LOAN_PAYMENTS_CREDIT_CARD_PAYMENT':return None
     parties=transaction.get('counterparties') or []
     if any(p.get('type') not in ('merchant','financial_institution','payment_app','marketplace','payment_terminal','income_source') for p in parties):return None
-    matches=[p for p in parties if p.get('type')=='merchant' and normalized_name(p.get('name')) and normalized_name(p['name']).casefold()==name.casefold() and p.get('confidence_level') in ('HIGH','VERY_HIGH')]
+    matches=[p for p in parties if raw_name and p.get('type')=='merchant' and normalized_name(p.get('name')) and normalized_name(p['name']).casefold()==normalized_name(raw_name).casefold() and p.get('confidence_level') in ('HIGH','VERY_HIGH')]
     entity=transaction.get('merchant_entity_id')
-    if is_venmo:
-        if transaction.get('payment_channel') not in ('online','in store'):return None
-        if not entity or not any(p.get('entity_id')==entity and p.get('confidence_level')=='VERY_HIGH' for p in matches):return None
-    elif not (matches or entity):return None
+    if raw_name and not (matches or entity):return None
     return name
 
 
@@ -58,7 +60,9 @@ def ingest_recurring(db,item,data):
     frequencies={'WEEKLY':'weekly','MONTHLY':'monthly','QUARTERLY':'quarterly','ANNUALLY':'yearly'}
     db.execute('DELETE FROM recurring_merchants WHERE item=?',(item,))
     for stream in data.get('outflow_streams',[]):
-        merchant=normalized_name(stream.get('merchant_name'));frequency=frequencies.get(stream.get('frequency'))
+        from descriptors import descriptor_label,clean_business_label
+        raw_name=stream.get('merchant_name')
+        merchant=descriptor_label({'name':raw_name}) or clean_business_label(raw_name);frequency=frequencies.get(stream.get('frequency'))
         month=(stream.get('last_date') or '')[:7]
         if not merchant or not frequency or not re.fullmatch(r'[0-9]{4}-(0[1-9]|1[0-2])',month):continue
         rows=db.execute('SELECT currency FROM transactions WHERE item=? AND merchant=? COLLATE NOCASE AND pending=0 AND amount>0 GROUP BY currency HAVING COUNT(*)>=2',(item,merchant)).fetchall()
@@ -80,9 +84,9 @@ def publish_merchants(db,out,today=None):
     earliest=db.execute('SELECT MIN(date) FROM transactions WHERE pending=0').fetchone()[0]
     for window,start,end,months in window_bounds(today,earliest):
         sql=f"""WITH eligible AS (
-          SELECT t.date,t.amount,t.currency,t.merchant FROM transactions t
+          SELECT t.date,t.amount,t.currency,COALESCE(t.merchant,'Other') AS merchant,t.merchant_source FROM transactions t
           JOIN items i ON i.id=t.item LEFT JOIN source_identity s ON s.provider_ref=t.item
-          WHERE t.pending=0 AND t.merchant IS NOT NULL AND t.date>=? AND t.date<? {excluded}),
+          WHERE t.pending=0 AND lower(i.institution) NOT LIKE '%venmo%' AND t.flow_kind='activity' AND t.primary_category!='INCOME' AND NOT EXISTS (SELECT 1 FROM internal_matches x WHERE x.item=t.item AND x.transaction_ref=t.id) AND t.date>=? AND t.date<? {excluded}),
           charges AS (SELECT *,julianday(date)-julianday(LAG(date) OVER(PARTITION BY merchant COLLATE NOCASE,currency ORDER BY date)) AS gap,
             ROW_NUMBER() OVER(PARTITION BY merchant COLLATE NOCASE,currency ORDER BY amount) AS amount_rank,
             COUNT(*) OVER(PARTITION BY merchant COLLATE NOCASE,currency) AS n FROM eligible WHERE amount>0),
@@ -100,17 +104,18 @@ def publish_merchants(db,out,today=None):
           grouped AS (SELECT MIN(e.merchant) AS merchant,e.currency,SUM(e.amount) AS total,SUM(e.amount>0) AS purchase_count,
             COALESCE(h.frequency,c.frequency) AS frequency,c.typical_charge,c.last_day,
             CASE WHEN h.frequency IS NOT NULL THEN 'provider_pattern' ELSE 'cadence_heuristic' END AS method,
-            COALESCE(h.active,1) AS provider_active
+            COALESCE(h.active,1) AS provider_active,CASE WHEN MIN(e.merchant_source)=MAX(e.merchant_source) THEN MIN(e.merchant_source) ELSE 'mixed' END AS merchant_source
             FROM eligible e LEFT JOIN cadence c ON c.merchant=e.merchant COLLATE NOCASE AND c.currency=e.currency
             LEFT JOIN hints h ON h.merchant=e.merchant COLLATE NOCASE AND h.currency=e.currency GROUP BY e.merchant COLLATE NOCASE,e.currency),
           folded AS (SELECT CASE WHEN purchase_count<? THEN 'Other' ELSE merchant END AS merchant,currency,total,purchase_count,
-            CASE WHEN purchase_count<? THEN NULL ELSE frequency END AS frequency,typical_charge,last_day,method,provider_active FROM grouped)
+            CASE WHEN purchase_count<? THEN NULL ELSE frequency END AS frequency,typical_charge,last_day,method,provider_active,merchant_source FROM grouped)
           SELECT merchant,currency,CASE WHEN SUM(purchase_count)>=? THEN ROUND(SUM(total),2) END,SUM(purchase_count),
             CASE WHEN merchant!='Other' THEN MAX(frequency) END,
             CASE WHEN merchant!='Other' AND MAX(frequency) IS NOT NULL THEN ROUND(MAX(typical_charge),2) END,
             CASE WHEN merchant!='Other' AND MAX(frequency) IS NOT NULL THEN substr(MAX(last_day),1,7) END,
             CASE WHEN merchant!='Other' AND MAX(frequency) IS NOT NULL THEN MIN(provider_active) AND julianday(?)-julianday(MAX(last_day))<=1.5*CASE MAX(frequency) WHEN 'weekly' THEN 7 WHEN 'monthly' THEN 30.4375 WHEN 'quarterly' THEN 91.3125 WHEN 'yearly' THEN 365.25 END END,
-            CASE WHEN merchant!='Other' AND MAX(frequency) IS NOT NULL THEN MAX(method) END
+            CASE WHEN merchant!='Other' AND MAX(frequency) IS NOT NULL THEN MAX(method) END,
+            CASE WHEN merchant!='Other' THEN MAX(merchant_source) ELSE 'unknown' END
           FROM folded GROUP BY merchant,currency"""
-        for merchant,currency,total,count,frequency,typical,month,active,method in db.execute(sql,[start.isoformat(),end.isoformat(),*disabled,*disabled,threshold,threshold,threshold,today.isoformat()]):
-            out.execute('INSERT INTO merchants VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',(window,merchant,currency,total,count,months,bool(frequency),frequency,typical,month,active,method))
+        for merchant,currency,total,count,frequency,typical,month,active,method,source in db.execute(sql,[start.isoformat(),end.isoformat(),*disabled,*disabled,threshold,threshold,threshold,today.isoformat()]):
+            out.execute('INSERT INTO merchants VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',(window,merchant,currency,total,count,months,bool(frequency),frequency,typical,month,active,method,source))

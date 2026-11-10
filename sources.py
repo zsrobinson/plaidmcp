@@ -9,7 +9,7 @@ from typing import Protocol
 PUBLIC_SCHEMA = '''
 CREATE TABLE sources(id TEXT PRIMARY KEY,institution TEXT,kind TEXT,as_of TEXT,status TEXT,data_kinds TEXT);
 CREATE TABLE accounts(id TEXT PRIMARY KEY,source_ref TEXT,display_name TEXT,institution TEXT,type TEXT,subtype TEXT,currency TEXT,current REAL,available REAL,credit_limit REAL,last_four TEXT,data_kinds TEXT,availability TEXT);
-CREATE TABLE daily(day TEXT,account_ref TEXT,source_ref TEXT,category TEXT,category_detailed TEXT,currency TEXT,income REAL,spending REAL,transfer_in REAL,transfer_out REAL,peer_in REAL,peer_out REAL,count INTEGER);
+CREATE TABLE daily(day TEXT,account_ref TEXT,source_ref TEXT,category TEXT,category_detailed TEXT,currency TEXT,income REAL,spending REAL,transfer_in REAL,transfer_out REAL,peer_in REAL,peer_out REAL,count INTEGER,payroll REAL DEFAULT 0,interest REAL DEFAULT 0,refunds REAL DEFAULT 0,other_income REAL DEFAULT 0,internal_in REAL DEFAULT 0,internal_out REAL DEFAULT 0);
 CREATE TABLE holdings(account_ref TEXT,source_ref TEXT,ticker TEXT,name TEXT,asset_class TEXT,security_type TEXT,currency TEXT,quantity REAL,value REAL,cost_basis REAL,count INTEGER);
 '''
 
@@ -89,17 +89,23 @@ class PlaidSource:
         if unmatched: accounts.append((unknown,ref,'Unassigned activity '+unknown[-6:],institution,'other','unassigned activity','UNKNOWN',None,None,None,'',json.dumps(['spending']),'unassigned'))
         sql="""WITH normalized AS (
             SELECT date AS day,COALESCE(m.ref,?) AS account_ref,
-              plaidmcp_category(primary_category,detailed_category) AS category,
-              plaidmcp_detail(primary_category,detailed_category) AS category_detailed,
-              t.currency,amount,primary_category FROM transactions t LEFT JOIN account_alias m
-              ON m.provider_ref=t.account AND m.item=t.item WHERE t.item=? AND pending=0)
+              CASE WHEN x.transaction_ref IS NOT NULL THEN 'internal_transfer' ELSE plaidmcp_category(primary_category,detailed_category) END AS category,
+              CASE WHEN x.transaction_ref IS NOT NULL THEN 'internal_transfer' ELSE plaidmcp_detail(primary_category,detailed_category) END AS category_detailed,
+              t.currency,amount,primary_category,detailed_category FROM transactions t LEFT JOIN account_alias m
+              ON m.provider_ref=t.account AND m.item=t.item LEFT JOIN internal_matches x ON x.item=t.item AND x.transaction_ref=t.id WHERE t.item=? AND pending=0)
             SELECT day,account_ref,?,category,category_detailed,currency,
               SUM(CASE WHEN category='income' THEN -amount ELSE 0 END),
-              SUM(CASE WHEN category NOT IN ('income','bank_transfer','peer_payment') THEN amount ELSE 0 END),
+              SUM(CASE WHEN category NOT IN ('income','bank_transfer','peer_payment','internal_transfer') THEN amount ELSE 0 END),
               SUM(CASE WHEN category='bank_transfer' AND amount<0 THEN -amount ELSE 0 END),
               SUM(CASE WHEN category='bank_transfer' AND amount>=0 THEN amount ELSE 0 END),
               SUM(CASE WHEN category='peer_payment' AND amount<0 THEN -amount ELSE 0 END),
-              SUM(CASE WHEN category='peer_payment' AND amount>=0 THEN amount ELSE 0 END),COUNT(*)
+              SUM(CASE WHEN category='peer_payment' AND amount>=0 THEN amount ELSE 0 END),COUNT(*),
+              SUM(CASE WHEN category='income' AND detailed_category='INCOME_WAGES' THEN -amount ELSE 0 END),
+              SUM(CASE WHEN category='income' AND detailed_category='INCOME_INTEREST_EARNED' THEN -amount ELSE 0 END),
+              SUM(CASE WHEN category NOT IN ('income','bank_transfer','peer_payment','internal_transfer') AND amount<0 THEN -amount ELSE 0 END),
+              SUM(CASE WHEN category='income' AND detailed_category NOT IN ('INCOME_WAGES','INCOME_INTEREST_EARNED') THEN -amount ELSE 0 END),
+              SUM(CASE WHEN category='internal_transfer' AND amount<0 THEN -amount ELSE 0 END),
+              SUM(CASE WHEN category='internal_transfer' AND amount>0 THEN amount ELSE 0 END)
             FROM normalized GROUP BY day,account_ref,category,category_detailed,currency"""
         activity=db.execute(sql,(unknown,self.key,ref)).fetchall()
         holdings=db.execute('''SELECT m.ref,?,ticker,h.name,CASE WHEN h.type IN ('etf','mutual fund') THEN 'fund' WHEN h.type='equity' THEN 'stock' WHEN h.type IN ('bond','fixed income') THEN 'bond' WHEN h.type IN ('cash','cash equivalent') THEN 'cash' ELSE 'other' END,CASE WHEN h.type='etf' THEN 'etf' WHEN h.type='mutual fund' THEN 'mutual_fund' WHEN h.type='equity' THEN 'stock' WHEN h.type IN ('bond','fixed income') THEN 'bond' WHEN h.type IN ('cash','cash equivalent') THEN 'cash' ELSE 'other' END,h.currency,SUM(quantity),SUM(value),CASE WHEN COUNT(cost_basis)=COUNT(*) THEN SUM(cost_basis) END,COUNT(*) FROM holdings h JOIN account_alias m ON m.provider_ref=h.account AND m.item=h.item WHERE h.item=? GROUP BY m.ref,ticker,h.name,h.type,h.currency''',(ref,self.key)).fetchall()

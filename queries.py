@@ -129,15 +129,18 @@ class Queries:
         if not include_transfers: where+=" AND d.category!='bank_transfer'"
         if not include_peer_transfers: where+=" AND d.category!='peer_payment'"
         key,label=expressions[group_by]
+        breakdown={**{name:'d.'+name for name in ('payroll','interest','refunds','other_income')},'p2p_received':'d.peer_in','p2p_sent':'d.peer_out','internal_transfers_in':'d.internal_in','internal_transfers_out':'d.internal_out'}
+        projected=','.join('SUM('+value+') AS '+name for name,value in breakdown.items())
+        folded_metrics=','.join('ROUND(SUM('+name+'),2) AS '+name for name in breakdown)
         sql=f'''WITH grouped AS (SELECT {key} AS g,{label} AS label,d.currency,
           SUM(d.income+d.peer_in) AS income,SUM(d.spending+d.peer_out) AS spending,
-          SUM(d.transfer_in) AS transfers_in,SUM(d.transfer_out) AS transfers_out,SUM(d.count) AS count
+          SUM(d.transfer_in) AS transfers_in,SUM(d.transfer_out) AS transfers_out,SUM(d.count) AS count,{projected}
           FROM daily d JOIN accounts a ON a.id=d.account_ref WHERE 1=1 {where} GROUP BY g,label,d.currency),
           folded AS (SELECT CASE WHEN count<? THEN '__other__' ELSE g END AS g,
             CASE WHEN count<? THEN 'Other (small groups)' ELSE label END AS label,* FROM grouped)
           SELECT g AS 'group',label,currency,ROUND(SUM(income),2) AS income,ROUND(SUM(spending),2) AS spending,
             ROUND(SUM(transfers_in),2) AS transfers_in,ROUND(SUM(transfers_out),2) AS transfers_out,
-            ROUND(SUM(income-spending+transfers_in-transfers_out),2) AS net,SUM(count) AS count
+            ROUND(SUM(income-spending+transfers_in-transfers_out),2) AS net,SUM(count) AS count,{folded_metrics}
           FROM folded GROUP BY g,label,currency ORDER BY currency,g'''
         rows=[dict(r) for r in db.execute(sql,[*args,self.minimum,self.minimum])]
         for row in rows:
@@ -152,8 +155,9 @@ class Queries:
         totals=[dict(r) for r in db.execute(f'''SELECT d.currency,ROUND(SUM(d.income+d.peer_in),2) AS income,
             ROUND(SUM(d.spending+d.peer_out),2) AS spending,ROUND(SUM(d.transfer_in),2) AS transfers_in,
             ROUND(SUM(d.transfer_out),2) AS transfers_out,ROUND(SUM(d.income+d.peer_in-d.spending-d.peer_out+d.transfer_in-d.transfer_out),2) AS net,
-            SUM(d.count) AS count FROM daily d JOIN accounts a ON a.id=d.account_ref WHERE 1=1 {where} GROUP BY d.currency''',args)]
+            SUM(d.count) AS count,{projected} FROM daily d JOIN accounts a ON a.id=d.account_ref WHERE 1=1 {where} GROUP BY d.currency''',args)]
         months,weeks=units(start,end)
+        for row in (*rows,*totals):row['internal_transfers_net']=round(row['internal_transfers_in']-row['internal_transfers_out'],2)
         for row in totals: row.update(average_per_month=round(row['spending']/months,2),average_per_week=round(row['spending']/weeks,2))
         return {'start':start,'end':end,'group_by':group_by,'groups':rows,'totals':totals}
 
@@ -161,7 +165,7 @@ class Queries:
         account_ids:list[str]|None=None,institution:str|None=None,category:str|None=None,
         include_transfers:bool=False,include_peer_transfers:bool=False,
         compare_start:str|None=None,compare_end:str|None=None) -> dict:
-        """Answer spending/income questions by category, detailed category, month, ISO Monday week, account or institution. Dates YYYY-MM-DD: start inclusive/end exclusive; default month-to-date. Use ids/names/codes from discovery. Decimal amounts per currency (USD stays USD): spending positive, refunds negative; income/transfer receipts positive; net=inflow-outflow. Bank/card transfers and peer payments default excluded independently. Peer opt-in treats receipts as income and sent payments as spending, not taxable-income classification. Returns counts, spending averages per calendar-month equivalent and seven-day week, totals and optional comparison period with absolute/percent deltas (null at zero baseline). No transaction details. min_group_count folds small groups into Other; it is not differential privacy."""
+        """Answer spending/income questions by category, detailed category, month, ISO Monday week, account or institution. Dates YYYY-MM-DD: start inclusive/end exclusive; default month-to-date. Use ids/names/codes from discovery. Decimal amounts per currency (USD stays USD): spending positive, refunds negative; income/transfer receipts positive; net=inflow-outflow. Bank/card transfers and peer payments default excluded independently. Peer opt-in treats receipts as income and sent payments as spending, not taxable-income classification. Returns counts, spending averages per calendar-month equivalent and seven-day week, totals and optional comparison period with absolute/percent deltas (null at zero baseline). Internal transfers are matched across linked accounts by exact cents/currency within three calendar days, only when both sides are transfer-classified and mutually unique. They are shown in internal_transfers_in/out/net but never income/spending or the net flow. Ambiguous/unmatched bank transfers stay in transfers_in/out (include_transfers opt-in). Payroll, interest, other_income and p2p_received (peer opt-in) are distinct; refunds are positive informational offsets already subtracted from spending, not counted again as income. Matching is an evidence-based heuristic, not proof of ownership. No transaction details. min_group_count folds small groups into Other; it is not differential privacy."""
         start,end=default_period(start,end)
         if bool(compare_start)!=bool(compare_end): raise ValueError('Supply both comparison dates')
         if compare_start: compare_start,compare_end=default_period(compare_start,compare_end)
@@ -185,7 +189,7 @@ class Queries:
         return self._read(read)
 
     def merchant_totals(self,window:MerchantWindow='last_6_months',recurring_only:bool=False) -> dict:
-        """Answer 'which businesses do I spend with, and what is my monthly average?' Returns only normalized business-name aggregates, positive spending/refunds negative, decimal units separated by currency. Windows: month_to_date, last_month, or last_3/6/12_months (completed UTC calendar months), or all_history (observed span). Set recurring_only=true to find subscription candidates. No arbitrary dates, account/merchant filters or single purchases. At least max(2,min_group_count) purchases per named merchant/window; smaller groups fold into Other. Other with too few purchases has null total/average. Monthly average divides the window total by its calendar-month equivalents. Recurring uses provider patterns when available, otherwise at least two regularly spaced charges with amounts within 25%. Returns frequency (weekly/monthly/quarterly/yearly), typical_charge (median positive charges), last_charged_month (YYYY-MM only), active (last charge within 1.5 periods), recurring_method. These are candidates, not guaranteed subscriptions. Short history cannot establish yearly recurrence; never infer a yearly plan from only a few months. Provider BIWEEKLY/SEMI_MONTHLY is not forced into a different frequency. Venmo needs explicit high-confidence business evidence; people, notes, usernames and peer/bank transfers are excluded. Use cash_flow(include_peer_transfers=true) for peer buckets. Snapshot windows are computed at sync; every result includes source freshness."""
+        """Answer 'which businesses do I spend with, and what is my monthly average?' Returns only normalized business-name aggregates, positive spending/refunds negative, decimal units separated by currency. Windows: month_to_date, last_month, or last_3/6/12_months (completed UTC calendar months), or all_history (observed span). Set recurring_only=true to find subscription candidates. merchant_source identifies provider_name, descriptor_fallback, mixed or unknown. Descriptor fallback only recognizes conservative public business patterns; ambiguous/person/transfer descriptions never become merchant labels. Venmo is excluded entirely. No arbitrary dates, account/merchant filters or single purchases. At least max(2,min_group_count) purchases per named merchant/window; smaller groups fold into Other. Other with too few purchases has null total/average. Monthly average divides the window total by its calendar-month equivalents. Recurring uses provider patterns when available, otherwise at least two regularly spaced charges with amounts within 25%. Returns frequency (weekly/monthly/quarterly/yearly), typical_charge (median positive charges), last_charged_month (YYYY-MM only), active (last charge within 1.5 periods), recurring_method. These are candidates, not guaranteed subscriptions. Short history cannot establish yearly recurrence; never infer a yearly plan from only a few months. Provider BIWEEKLY/SEMI_MONTHLY is not forced into a different frequency. All Venmo rows are excluded from merchant naming; people, notes, usernames and peer/bank transfers are excluded. Use cash_flow(include_peer_transfers=true) for peer buckets. Snapshot windows are computed at sync; every result includes source freshness."""
         from merchants import WINDOWS
         if window not in WINDOWS:raise ValueError('Use a discovered supported merchant window')
         def read(db,sources):
@@ -199,7 +203,8 @@ class Queries:
                 CASE WHEN label!='Other' THEN MAX(typical_charge) END AS typical_charge,
                 CASE WHEN label!='Other' THEN MAX(last_charged_month) END AS last_charged_month,
                 CASE WHEN label!='Other' THEN MAX(active) END AS active,
-                CASE WHEN label!='Other' THEN MAX(recurring_method) END AS recurring_method FROM folded GROUP BY label,currency)
+                CASE WHEN label!='Other' THEN MAX(recurring_method) END AS recurring_method,
+                CASE WHEN label!='Other' THEN CASE WHEN MIN(merchant_source)=MAX(merchant_source) THEN MIN(merchant_source) ELSE 'mixed' END ELSE 'unknown' END AS merchant_source FROM folded GROUP BY label,currency)
                 SELECT * FROM grouped WHERE ?=0 OR recurring=1 ORDER BY currency,total DESC,merchant'''
             for raw in db.execute(sql,(threshold,window,threshold,recurring_only)):
                 row=dict(raw);months=row.pop('months')

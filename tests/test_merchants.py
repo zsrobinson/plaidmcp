@@ -10,8 +10,11 @@ from queries import Queries
 from store import ingest_transactions,publish
 
 @pytest.fixture(autouse=True)
-def fixed_today(monkeypatch):
+def fixed_today(monkeypatch,snapshot):
+    db,_=snapshot
+    db.execute('DELETE FROM transactions');db.commit()
     monkeypatch.setattr('merchants.today_utc',lambda:date(2026,11,10))
+    publish(db,snapshot[1])
 
 
 def transaction(key,day,amount=20,merchant='Fixture Software',**extra):
@@ -75,7 +78,7 @@ def test_venmo_business_evidence_and_person_fields_never_persist(snapshot):
     publish(db,public)
     assert db.execute("SELECT merchant FROM transactions WHERE id='peer1'").fetchone()[0] is None
     assert db.execute("SELECT detailed_category FROM transactions WHERE id='peer2'").fetchone()[0]=='TRANSFER_OUT_PEER_TRANSFER'
-    assert any(r['merchant']=='Synthetic Wallet Business' for r in rows(public))
+    assert not any(r['merchant']=='Synthetic Wallet Business' for r in rows(public))
     for value in (person,note,username):
         assert value.encode() not in public.read_bytes()
         assert value.encode() not in Path(db.execute('PRAGMA database_list').fetchone()[2]).read_bytes()

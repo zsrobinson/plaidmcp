@@ -80,7 +80,7 @@ Private credentials/state are outside Git. Two future system users separate sync
 secrets/raw stripped records from the MCP's aggregate-only snapshot. Provider
 account names are fingerprinted for matching and replaced with generated labels;
 descriptions, person counterparties, routing/owner/contact fields are not persisted.
-Only verified normalized business names are retained privately for merchant aggregates.
+Only verified normalized business names or conservative public-brand fallback labels are retained privately for merchant aggregates.
 No account numbers except optional last four; no financial writes exist. Link's
 CSRF/same-host helper binds 127.0.0.1:8768, warns on duplicate institutions and
 supports `--update` without creating a new Item. Production Trial's ten lifetime
@@ -137,10 +137,10 @@ candidates. Fixed UTC calendar windows are published at sync; there is no arbitr
 day, account or merchant selector that could isolate a purchase. See
 [merchant privacy and cadence rules](docs/tools.md#merchant_totals).
 
-Only Plaid's normalized `merchant_name` is considered, with structured business
-identity evidence; descriptions are never fallback names. Venmo requires a matching
-VERY_HIGH-confidence merchant entity and online/in-store channel; unknown/person
-rows become peer transfers. Merchant rows are folded in SQL **before publication**.
+Provider business names use structured identity evidence and conservative normalization.
+Missing names may use a curated business-only descriptor fallback during private sync.
+All Venmo rows are excluded from merchant naming; people and transfer rails never
+become merchants. Uncertain non-Venmo spending joins Other without any text. Merchant rows are folded in SQL **before publication**.
 Every named merchant/window needs at least max(2, min_group_count) positive charges.
 Other with fewer charges has null amounts; no merchant dates or individual charges
 are stored in the aggregate snapshot. The median charge is a multi-charge statistic.
@@ -158,3 +158,31 @@ in memory, then atomically publishes. Failures report only phase/type/field cont
 `deploy/production_session.py` is a temporary sudo-owner session template; concrete
 operator restrictions, source pins, maintenance/install scripts and host settings
 belong in the private deployment repository. It adds no standing privilege.
+
+## Conservative descriptor fallback and internal transfers
+
+`descriptors.py` classifies raw bank text only inside the sync/audit process. It
+strips numbers, dates, phones, references, URLs and known/structured location
+suffixes; it collapses repeated/truncated fragments. Fallback promotes only a
+small generic public-brand/product vocabulary, never arbitrary cleaned text.
+Descriptors containing personal-payment rails, honorific/name patterns, email
+addresses or unrecognized extra words are rejected. Missing business evidence
+means Other. Provider location-only labels are rejected when they match structured
+location fields. Conservative rules may omit genuine businesses and cannot prove
+that every upstream classification is correct. No raw descriptor is persisted,
+even in private state; only the normalized label/provenance is retained privately.
+
+`merchant_source` distinguishes provider_name, descriptor_fallback, mixed and
+unknown. Unknown posted non-Venmo spending is now included in Other, rather than
+omitted. Its amount is still null below the two-purchase threshold. This expands
+coverage, so Other totals from older releases are not directly comparable.
+
+`transfers.py` matches only mutually unique, opposite exact-cent amounts in the
+same currency within three calendar days between distinct known linked account
+identities. Both legs must have structured/explicit bank-transfer evidence;
+payroll and peers cannot match just because an amount happens to be equal.
+Ambiguous transfers remain unmatched. Matches are recomputed on every publish,
+respect disabled sources, and never expose transaction or pair identifiers.
+Cash flow splits payroll, interest, other income, peer receipts, refunds and
+internal-transfer amounts. Internal moves are always excluded from income,
+spending and net flow; refunds remain offsets to spending, not duplicated income.

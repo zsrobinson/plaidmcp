@@ -90,7 +90,9 @@ explicitly enabled in both sync and server env; the default snapshot stores none
 ## Merchant publication
 
 The private transaction store adds only a verified normalized business label. No
-person/unknown counterparty, username or note is retained. A separate `merchants`
+person/unknown counterparty, username or note is retained. Missing business names
+may use conservative curated descriptor patterns; raw descriptions are discarded
+before persistence. Venmo never supplies merchant labels. A separate `merchants`
 snapshot table contains folded, precomputed calendar windows and merchant-level
 recurrence statistics. It has no day, provider/account id or individual amount.
 The SQL publisher groups across enabled sources and folds counts below max(2,

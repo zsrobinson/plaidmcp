@@ -4,7 +4,7 @@ from pathlib import Path
 
 PHASE='starting'
 MATCH={}
-BANNED={'transaction_id','account_id','item_id','merchant_name','description','original_description','counterparties','note','notes','payment_note','payment_notes','username','user_name','routing_number','account_number','owners','owner_name','addresses','emails','phones','access_token','public_token'}
+BANNED={'transaction_id','account_id','item_id','merchant_name','description','original_description','counterparties','note','notes','payment_note','payment_notes','username','user_name','routing_number','account_number','owners','owner_name','addresses','emails','phones','access_token','public_token','raw_descriptor','bank_description'}
 
 
 def check(value,strings,**context):
@@ -42,10 +42,28 @@ def audit_snapshot(public,private,private_strings,strict_strings,approved_busine
             expected.executescript(MERCHANT_SCHEMA);publish_merchants(private,expected)
             if db.execute('SELECT * FROM merchants ORDER BY window,merchant,currency').fetchall()!=expected.execute('SELECT * FROM merchants ORDER BY window,merchant,currency').fetchall():raise ValueError('Merchant aggregates differ from private SQL')
         finally:expected.close()
+        PHASE='internal_transfer_audit'
+        invalid=private.execute('''SELECT COUNT(*) FROM internal_matches x
+            JOIN transactions a ON a.item=x.item AND a.id=x.transaction_ref
+            JOIN transactions b ON b.item=x.paired_item AND b.id=x.paired_ref
+            JOIN account_alias aa ON aa.item=a.item AND aa.provider_ref=a.account
+            JOIN account_alias bb ON bb.item=b.item AND bb.provider_ref=b.account
+            WHERE a.pending!=0 OR b.pending!=0 OR a.flow_kind!='bank_transfer' OR b.flow_kind!='bank_transfer'
+            OR aa.ref=bb.ref OR a.currency!=b.currency OR CAST(ROUND(a.amount*100) AS INTEGER)!=-CAST(ROUND(b.amount*100) AS INTEGER)
+            OR ABS(julianday(a.date)-julianday(b.date))>3''').fetchone()[0]
+        if invalid:raise ValueError('Invalid internal transfer match')
+        if db.execute("SELECT COUNT(*) FROM daily WHERE category='internal_transfer' AND (income!=0 OR spending!=0 OR transfer_in!=0 OR transfer_out!=0 OR peer_in!=0 OR peer_out!=0)").fetchone()[0]:raise ValueError('Internal transfer entered income or spending')
+        for currency,incoming,outgoing in private.execute('''SELECT t.currency,
+            ROUND(SUM(CASE WHEN amount<0 THEN -amount ELSE 0 END),2),ROUND(SUM(CASE WHEN amount>0 THEN amount ELSE 0 END),2)
+            FROM transactions t JOIN internal_matches x ON x.item=t.item AND x.transaction_ref=t.id GROUP BY t.currency'''):
+            actual=db.execute('SELECT ROUND(COALESCE(SUM(internal_in),0),2),ROUND(COALESCE(SUM(internal_out),0),2) FROM daily WHERE currency=?',(currency,)).fetchone()
+            if actual!=(incoming,outgoing):raise ValueError('Internal transfer aggregate mismatch')
         minimum=max(2,int(os.environ.get('PLAIDMCP_MIN_GROUP_COUNT','1')))
+        from descriptors import person_like,rail_kind
         for merchant,count,total in db.execute('SELECT merchant,purchase_count,total FROM merchants'):
             if merchant!='Other' and (count<minimum or merchant not in approved_business):raise ValueError('Unapproved merchant group')
             if count<minimum and total is not None:raise ValueError('Single-purchase amount exposed')
+            if merchant!='Other' and (person_like(merchant) or rail_kind(merchant) or re.search(r'\d',merchant)):raise ValueError('Unsafe merchant label')
             if merchant!='Other':check(merchant.encode(),strict_strings,table='merchants',column='merchant')
         # Explicitly permitted metadata can overlap a private provider/merchant label.
         # Scrub only known metadata/business values before scanning SQLite bytes.
@@ -145,7 +163,7 @@ def main():
                 if 'transactions' not in products.split(','):continue
                 cursor=None
                 for _ in range(1000):
-                    payload={'access_token':token,'count':500,'options':{'personal_finance_category_version':'v2'}}
+                    payload={'access_token':token,'count':500,'options':{'personal_finance_category_version':'v2','include_original_description':True}}
                     if cursor:payload['cursor']=cursor
                     page=audit_client.call('/transactions/sync',**payload)
                     if not page['has_more']:break
@@ -154,6 +172,7 @@ def main():
             sources,healthy,accounts=audit_snapshot(candidate,private,captured,strict,approved)
             failures=private.execute('SELECT COUNT(*) FROM items WHERE error IS NOT NULL OR as_of IS NULL').fetchone()[0]
             history={institution:month for institution,month in private.execute('SELECT i.institution,MIN(substr(t.date,1,7)) FROM items i LEFT JOIN transactions t ON t.item=i.id AND t.pending=0 GROUP BY i.id')}
+        if failures or healthy!=sources:raise ValueError('Source health gate failed; prior snapshot retained')
         PHASE='publication';os.replace(candidate,public)
         print(json.dumps({'privacy_passed':True,'linked_items':len(tokens),'sources':sources,'healthy_sources':healthy,'accounts':accounts,'ready_for_timer':bool(tokens and healthy==sources and not failures and accounts),'history_earliest_month':history,'recurring_provider_available':any(recurring_support)}))
     finally:

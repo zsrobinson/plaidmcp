@@ -110,7 +110,7 @@ def prepare(client):
             client.private_strings.add(token)
             cursor = None
             for _ in range(100):
-                kwargs = {'access_token':token,'options':{'personal_finance_category_version':'v2'},'count':500}
+                kwargs = {'access_token':token,'options':{'personal_finance_category_version':'v2','include_original_description':True},'count':500}
                 if cursor: kwargs['cursor'] = cursor
                 response = client.call('/transactions/sync',**kwargs)
                 ingest_transactions(db,item,response)

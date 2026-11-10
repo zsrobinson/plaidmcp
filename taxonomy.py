@@ -12,6 +12,7 @@ CATEGORIES = {
  'fees': ('Fees','general_fees'),
  'loan_payments': ('Loan payments','general_loan_payments'),
  'bank_transfer': ('Bank transfers and card payments','bank_transfer'),
+ 'internal_transfer': ('Matched internal transfers','internal_transfer'),
  'peer_payment': ('Peer payments','peer_sent','peer_received'),
  'other': ('Other or unclassified','unclassified'),
 }

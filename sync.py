@@ -45,7 +45,7 @@ def sync_item(db, client, row):
                 if 'transactions' in products:
                     next_cursor = cursor
                     for _ in range(1000):
-                        payload = {'access_token':token,'count':500,'options':{'personal_finance_category_version':'v2'}}
+                        payload = {'access_token':token,'count':500,'options':{'personal_finance_category_version':'v2','include_original_description':True}}
                         if next_cursor: payload['cursor'] = next_cursor
                         page = client.call('/transactions/sync',**payload)
                         ingest_transactions(db,item,page)
