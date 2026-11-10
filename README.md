@@ -115,3 +115,14 @@ connection from counting the same history twice. PFC structured peer codes and
 Venmo's other-transfer codes are normalized without reading any notes or names;
 ambiguous bank classifications stay excluded. This remains a heuristic, not a
 claim that all personal-payment data is classified correctly.
+
+### Choosing an institution in the local Link helper
+
+`link.py --product transactions --institution-name "Example Bank"` allows selection
+in Plaid's native search without requiring a developer institution ID. The optional
+name hint refuses wrong-bank selection before authentication; `--institution ID`
+still supports verified IDs and is required for update mode. Already-linked IDs
+are blocked in the browser and before exchange; named duplicate feeds are rejected
+before token creation. The helper never asks for extra products. Close it after
+linking; do not expose it through a public tunnel. Avoid creating duplicate Trial
+Items: removing an Item never restores its lifetime slot.

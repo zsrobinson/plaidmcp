@@ -6,7 +6,8 @@ import pytest
 import link
 from sync import private_store
 
-async def test_link_local_csrf_single_use_and_duplicate(tmp_path,monkeypatch):
+@pytest.mark.parametrize('selection',['id','name'])
+async def test_link_local_csrf_single_use_and_duplicate(tmp_path,monkeypatch,selection):
     monkeypatch.setenv('PLAIDMCP_PRIVATE',str(tmp_path/'private'))
     calls=[]
     class FakeClient:
@@ -15,7 +16,7 @@ async def test_link_local_csrf_single_use_and_duplicate(tmp_path,monkeypatch):
             if path=='/link/token/create': return {'link_token':'fake-link'}
             return {'item_id':'item','access_token':'fake-access'}
     monkeypatch.setattr(link,'Client',FakeClient)
-    monkeypatch.setattr('sys.argv',['link.py','--institution','ins_1','--product','transactions'])
+    monkeypatch.setattr('sys.argv',['link.py','--product','transactions']+(['--institution','ins_1'] if selection=='id' else ['--institution-name','Example Bank']))
     import sqlite3
     import sync
     from store import SCHEMA
@@ -49,7 +50,7 @@ async def test_link_local_csrf_single_use_and_duplicate(tmp_path,monkeypatch):
                 assert request('/token',csrf)[0]==200
                 assert calls[-1][1]['products']==['transactions']
                 assert request('/token',csrf)[0]==409
-                assert request('/exchange',csrf,json.dumps({'public_token':'fake-public','institution_id':'ins_1'}).encode())[0]==200
+                assert request('/exchange',csrf,json.dumps({'public_token':'fake-public','institution_id':'ins_1','institution_name':'Example Bank'}).encode())[0]==200
                 assert request('/exchange',csrf)[0]==409
             finally:
                 self.shutdown(); thread.join(); self.server_close()
