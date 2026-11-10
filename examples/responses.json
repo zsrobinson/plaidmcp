@@ -1,0 +1,621 @@
+{
+  "overview": {
+    "as_of": {
+      "src_6fff88061fc340dbb115b89438af1a79": "2026-11-10T12:00:00+00:00",
+      "src_8924422446a14068b84c86d60edcae1c": "2026-11-10T12:00:00+00:00"
+    },
+    "sources": [
+      {
+        "id": "src_6fff88061fc340dbb115b89438af1a79",
+        "institution": "Example Bank",
+        "kind": "connection",
+        "as_of": "2026-11-10T12:00:00+00:00",
+        "status": "healthy",
+        "data_kinds": [
+          "balances",
+          "spending"
+        ],
+        "freshness": "current"
+      },
+      {
+        "id": "src_8924422446a14068b84c86d60edcae1c",
+        "institution": "Example Broker",
+        "kind": "connection",
+        "as_of": "2026-11-10T12:00:00+00:00",
+        "status": "healthy",
+        "data_kinds": [
+          "balances",
+          "holdings"
+        ],
+        "freshness": "current"
+      }
+    ],
+    "unreliable_sources": [],
+    "data": {
+      "balances": {
+        "group_by": "type",
+        "groups": [
+          {
+            "group": "credit",
+            "label": "credit",
+            "currency": "USD",
+            "assets": 0,
+            "liabilities": 200.0,
+            "net_worth": -200.0,
+            "cash": 0,
+            "invested": 0,
+            "credit_owed": 200.0,
+            "unknown_balances": 0
+          },
+          {
+            "group": "depository",
+            "label": "depository",
+            "currency": "USD",
+            "assets": 2000.0,
+            "liabilities": 0,
+            "net_worth": 2000.0,
+            "cash": 2000.0,
+            "invested": 0,
+            "credit_owed": 0,
+            "unknown_balances": 0
+          },
+          {
+            "group": "investment",
+            "label": "investment",
+            "currency": "USD",
+            "assets": 3000.0,
+            "liabilities": 0,
+            "net_worth": 3000.0,
+            "cash": 0,
+            "invested": 3000.0,
+            "credit_owed": 0,
+            "unknown_balances": 0
+          }
+        ],
+        "totals": [
+          {
+            "currency": "USD",
+            "assets": 5000.0,
+            "liabilities": 200.0,
+            "net_worth": 4800.0,
+            "cash": 2000.0,
+            "invested": 3000.0,
+            "credit_owed": 200.0,
+            "unknown_balances": 0
+          }
+        ]
+      },
+      "month_to_date": [
+        {
+          "currency": "USD",
+          "income": 1000.0,
+          "spending": 110.0,
+          "transfers_in": 0.0,
+          "transfers_out": 0.0,
+          "net": 890.0,
+          "count": 4,
+          "average_per_month": 330.0,
+          "average_per_week": 77.0
+        }
+      ],
+      "last_month": [
+        {
+          "currency": "USD",
+          "income": 0.0,
+          "spending": 80.0,
+          "transfers_in": 0.0,
+          "transfers_out": 0.0,
+          "net": -80.0,
+          "count": 1,
+          "average_per_month": 80.0,
+          "average_per_week": 18.06
+        }
+      ],
+      "last_month_same_elapsed_days": [
+        {
+          "currency": "USD",
+          "income": 0.0,
+          "spending": 80.0,
+          "transfers_in": 0.0,
+          "transfers_out": 0.0,
+          "net": -80.0,
+          "count": 1,
+          "average_per_month": 248.0,
+          "average_per_week": 56.0
+        }
+      ],
+      "typical_month": [
+        {
+          "currency": "USD",
+          "observed_months": 1,
+          "median_monthly_spending": null
+        }
+      ],
+      "spending_comparisons": [
+        {
+          "currency": "USD",
+          "month_to_date": 110.0,
+          "last_month": {
+            "spending": 80.0,
+            "delta": 30.0,
+            "percent_change": 37.5
+          },
+          "last_month_same_elapsed_days": {
+            "spending": 80.0,
+            "delta": 30.0,
+            "percent_change": 37.5
+          },
+          "typical_month": {
+            "spending": null,
+            "delta": null,
+            "percent_change": null
+          }
+        }
+      ],
+      "top_categories": [
+        {
+          "group": "food",
+          "label": "food",
+          "currency": "USD",
+          "income": 0.0,
+          "spending": 110.0,
+          "transfers_in": 0.0,
+          "transfers_out": 0.0,
+          "net": -110.0,
+          "count": 3,
+          "average_per_month": 330.0,
+          "average_per_week": 77.0
+        },
+        {
+          "group": "income",
+          "label": "income",
+          "currency": "USD",
+          "income": 1000.0,
+          "spending": 0.0,
+          "transfers_in": 0.0,
+          "transfers_out": 0.0,
+          "net": 1000.0,
+          "count": 1,
+          "average_per_month": 0.0,
+          "average_per_week": 0.0
+        }
+      ],
+      "start": "2026-11-01",
+      "end": "2026-11-11"
+    }
+  },
+  "list_accounts": {
+    "as_of": {
+      "src_6fff88061fc340dbb115b89438af1a79": "2026-11-10T12:00:00+00:00",
+      "src_8924422446a14068b84c86d60edcae1c": "2026-11-10T12:00:00+00:00"
+    },
+    "sources": [
+      {
+        "id": "src_6fff88061fc340dbb115b89438af1a79",
+        "institution": "Example Bank",
+        "kind": "connection",
+        "as_of": "2026-11-10T12:00:00+00:00",
+        "status": "healthy",
+        "data_kinds": [
+          "balances",
+          "spending"
+        ],
+        "freshness": "current"
+      },
+      {
+        "id": "src_8924422446a14068b84c86d60edcae1c",
+        "institution": "Example Broker",
+        "kind": "connection",
+        "as_of": "2026-11-10T12:00:00+00:00",
+        "status": "healthy",
+        "data_kinds": [
+          "balances",
+          "holdings"
+        ],
+        "freshness": "current"
+      }
+    ],
+    "unreliable_sources": [],
+    "data": [
+      {
+        "id": "acct_3ebc79ba83134f5ea03ba486df79c28e",
+        "display_name": "Checking 79c28e",
+        "institution": "Example Bank",
+        "type": "depository",
+        "subtype": "checking",
+        "currency": "USD",
+        "current": 2000.0,
+        "available": 2000.0,
+        "credit_limit": null,
+        "data_kinds": [
+          "balances",
+          "spending"
+        ],
+        "availability": "available",
+        "source_id": "src_6fff88061fc340dbb115b89438af1a79",
+        "source_kind": "connection",
+        "as_of": "2026-11-10T12:00:00+00:00",
+        "freshness": "current",
+        "status": "healthy"
+      },
+      {
+        "id": "acct_ba6c6f761a5d4b569c21cc9bb2c9557f",
+        "display_name": "Credit Card c9557f",
+        "institution": "Example Bank",
+        "type": "credit",
+        "subtype": "credit card",
+        "currency": "USD",
+        "current": 200.0,
+        "available": null,
+        "credit_limit": 5000.0,
+        "data_kinds": [
+          "balances",
+          "spending"
+        ],
+        "availability": "available",
+        "source_id": "src_6fff88061fc340dbb115b89438af1a79",
+        "source_kind": "connection",
+        "as_of": "2026-11-10T12:00:00+00:00",
+        "freshness": "current",
+        "status": "healthy"
+      },
+      {
+        "id": "acct_b57a4a023e5c405b8fc890f36a7ee9f4",
+        "display_name": "Brokerage 7ee9f4",
+        "institution": "Example Broker",
+        "type": "investment",
+        "subtype": "brokerage",
+        "currency": "USD",
+        "current": 3000.0,
+        "available": null,
+        "credit_limit": null,
+        "data_kinds": [
+          "balances",
+          "holdings"
+        ],
+        "availability": "available",
+        "source_id": "src_8924422446a14068b84c86d60edcae1c",
+        "source_kind": "connection",
+        "as_of": "2026-11-10T12:00:00+00:00",
+        "freshness": "current",
+        "status": "healthy"
+      }
+    ]
+  },
+  "list_sources": {
+    "as_of": {
+      "src_6fff88061fc340dbb115b89438af1a79": "2026-11-10T12:00:00+00:00",
+      "src_8924422446a14068b84c86d60edcae1c": "2026-11-10T12:00:00+00:00"
+    },
+    "sources": [
+      {
+        "id": "src_6fff88061fc340dbb115b89438af1a79",
+        "institution": "Example Bank",
+        "kind": "connection",
+        "as_of": "2026-11-10T12:00:00+00:00",
+        "status": "healthy",
+        "data_kinds": [
+          "balances",
+          "spending"
+        ],
+        "freshness": "current"
+      },
+      {
+        "id": "src_8924422446a14068b84c86d60edcae1c",
+        "institution": "Example Broker",
+        "kind": "connection",
+        "as_of": "2026-11-10T12:00:00+00:00",
+        "status": "healthy",
+        "data_kinds": [
+          "balances",
+          "holdings"
+        ],
+        "freshness": "current"
+      }
+    ],
+    "unreliable_sources": [],
+    "data": [
+      {
+        "id": "src_6fff88061fc340dbb115b89438af1a79",
+        "institution": "Example Bank",
+        "kind": "connection",
+        "as_of": "2026-11-10T12:00:00+00:00",
+        "status": "healthy",
+        "data_kinds": [
+          "balances",
+          "spending"
+        ],
+        "freshness": "current"
+      },
+      {
+        "id": "src_8924422446a14068b84c86d60edcae1c",
+        "institution": "Example Broker",
+        "kind": "connection",
+        "as_of": "2026-11-10T12:00:00+00:00",
+        "status": "healthy",
+        "data_kinds": [
+          "balances",
+          "holdings"
+        ],
+        "freshness": "current"
+      }
+    ]
+  },
+  "list_categories": {
+    "as_of": {
+      "src_6fff88061fc340dbb115b89438af1a79": "2026-11-10T12:00:00+00:00",
+      "src_8924422446a14068b84c86d60edcae1c": "2026-11-10T12:00:00+00:00"
+    },
+    "sources": [
+      {
+        "id": "src_6fff88061fc340dbb115b89438af1a79",
+        "institution": "Example Bank",
+        "kind": "connection",
+        "as_of": "2026-11-10T12:00:00+00:00",
+        "status": "healthy",
+        "data_kinds": [
+          "balances",
+          "spending"
+        ],
+        "freshness": "current"
+      },
+      {
+        "id": "src_8924422446a14068b84c86d60edcae1c",
+        "institution": "Example Broker",
+        "kind": "connection",
+        "as_of": "2026-11-10T12:00:00+00:00",
+        "status": "healthy",
+        "data_kinds": [
+          "balances",
+          "holdings"
+        ],
+        "freshness": "current"
+      }
+    ],
+    "unreliable_sources": [],
+    "data": [
+      {
+        "category": "food",
+        "label": "Food and drink",
+        "category_detailed": "groceries",
+        "detailed_label": "Groceries",
+        "count": 4,
+        "has_data": true,
+        "first_date": "2026-10-10",
+        "last_date": "2026-11-04"
+      },
+      {
+        "category": "income",
+        "label": "Income",
+        "category_detailed": "wages",
+        "detailed_label": "Wages",
+        "count": 1,
+        "has_data": true,
+        "first_date": "2026-11-01",
+        "last_date": "2026-11-01"
+      },
+      {
+        "category": "bank_transfer",
+        "label": "Bank transfers and card payments",
+        "category_detailed": "bank_transfer",
+        "detailed_label": "Bank Transfer",
+        "count": 2,
+        "has_data": true,
+        "first_date": "2026-11-01",
+        "last_date": "2026-11-01"
+      }
+    ]
+  },
+  "cash_flow": {
+    "as_of": {
+      "src_6fff88061fc340dbb115b89438af1a79": "2026-11-10T12:00:00+00:00",
+      "src_8924422446a14068b84c86d60edcae1c": "2026-11-10T12:00:00+00:00"
+    },
+    "sources": [
+      {
+        "id": "src_6fff88061fc340dbb115b89438af1a79",
+        "institution": "Example Bank",
+        "kind": "connection",
+        "as_of": "2026-11-10T12:00:00+00:00",
+        "status": "healthy",
+        "data_kinds": [
+          "balances",
+          "spending"
+        ],
+        "freshness": "current"
+      },
+      {
+        "id": "src_8924422446a14068b84c86d60edcae1c",
+        "institution": "Example Broker",
+        "kind": "connection",
+        "as_of": "2026-11-10T12:00:00+00:00",
+        "status": "healthy",
+        "data_kinds": [
+          "balances",
+          "holdings"
+        ],
+        "freshness": "current"
+      }
+    ],
+    "unreliable_sources": [],
+    "data": {
+      "start": "2026-11-01",
+      "end": "2026-12-01",
+      "group_by": "month",
+      "groups": [
+        {
+          "group": "2026-11",
+          "label": "2026-11",
+          "currency": "USD",
+          "income": 1000.0,
+          "spending": 110.0,
+          "transfers_in": 0.0,
+          "transfers_out": 0.0,
+          "net": 890.0,
+          "count": 4,
+          "average_per_month": 110.0,
+          "average_per_week": 25.67
+        }
+      ],
+      "totals": [
+        {
+          "currency": "USD",
+          "income": 1000.0,
+          "spending": 110.0,
+          "transfers_in": 0.0,
+          "transfers_out": 0.0,
+          "net": 890.0,
+          "count": 4,
+          "average_per_month": 110.0,
+          "average_per_week": 25.67
+        }
+      ],
+      "comparison": null
+    }
+  },
+  "balance_summary": {
+    "as_of": {
+      "src_6fff88061fc340dbb115b89438af1a79": "2026-11-10T12:00:00+00:00",
+      "src_8924422446a14068b84c86d60edcae1c": "2026-11-10T12:00:00+00:00"
+    },
+    "sources": [
+      {
+        "id": "src_6fff88061fc340dbb115b89438af1a79",
+        "institution": "Example Bank",
+        "kind": "connection",
+        "as_of": "2026-11-10T12:00:00+00:00",
+        "status": "healthy",
+        "data_kinds": [
+          "balances",
+          "spending"
+        ],
+        "freshness": "current"
+      },
+      {
+        "id": "src_8924422446a14068b84c86d60edcae1c",
+        "institution": "Example Broker",
+        "kind": "connection",
+        "as_of": "2026-11-10T12:00:00+00:00",
+        "status": "healthy",
+        "data_kinds": [
+          "balances",
+          "holdings"
+        ],
+        "freshness": "current"
+      }
+    ],
+    "unreliable_sources": [],
+    "data": {
+      "group_by": "type",
+      "groups": [
+        {
+          "group": "credit",
+          "label": "credit",
+          "currency": "USD",
+          "assets": 0,
+          "liabilities": 200.0,
+          "net_worth": -200.0,
+          "cash": 0,
+          "invested": 0,
+          "credit_owed": 200.0,
+          "unknown_balances": 0
+        },
+        {
+          "group": "depository",
+          "label": "depository",
+          "currency": "USD",
+          "assets": 2000.0,
+          "liabilities": 0,
+          "net_worth": 2000.0,
+          "cash": 2000.0,
+          "invested": 0,
+          "credit_owed": 0,
+          "unknown_balances": 0
+        },
+        {
+          "group": "investment",
+          "label": "investment",
+          "currency": "USD",
+          "assets": 3000.0,
+          "liabilities": 0,
+          "net_worth": 3000.0,
+          "cash": 0,
+          "invested": 3000.0,
+          "credit_owed": 0,
+          "unknown_balances": 0
+        }
+      ],
+      "totals": [
+        {
+          "currency": "USD",
+          "assets": 5000.0,
+          "liabilities": 200.0,
+          "net_worth": 4800.0,
+          "cash": 2000.0,
+          "invested": 3000.0,
+          "credit_owed": 200.0,
+          "unknown_balances": 0
+        }
+      ]
+    }
+  },
+  "holdings": {
+    "as_of": {
+      "src_6fff88061fc340dbb115b89438af1a79": "2026-11-10T12:00:00+00:00",
+      "src_8924422446a14068b84c86d60edcae1c": "2026-11-10T12:00:00+00:00"
+    },
+    "sources": [
+      {
+        "id": "src_6fff88061fc340dbb115b89438af1a79",
+        "institution": "Example Bank",
+        "kind": "connection",
+        "as_of": "2026-11-10T12:00:00+00:00",
+        "status": "healthy",
+        "data_kinds": [
+          "balances",
+          "spending"
+        ],
+        "freshness": "current"
+      },
+      {
+        "id": "src_8924422446a14068b84c86d60edcae1c",
+        "institution": "Example Broker",
+        "kind": "connection",
+        "as_of": "2026-11-10T12:00:00+00:00",
+        "status": "healthy",
+        "data_kinds": [
+          "balances",
+          "holdings"
+        ],
+        "freshness": "current"
+      }
+    ],
+    "unreliable_sources": [],
+    "data": {
+      "group_by": "security",
+      "groups": [
+        {
+          "group": "FAKE",
+          "label": "FAKE",
+          "currency": "USD",
+          "ticker": "FAKE",
+          "name": "Fixture Fund",
+          "quantity": 30.0,
+          "value": 3000.0,
+          "cost_basis": 2500.0,
+          "count": 1,
+          "unrealized_gain": 500.0,
+          "allocation_percent": 100.0
+        }
+      ],
+      "totals": [
+        {
+          "currency": "USD",
+          "value": 3000.0,
+          "cost_basis": 2500.0,
+          "unrealized_gain": 500.0
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,11 @@
+[project]
+name = "plaidmcp"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = ["mcp>=1.26,<2", "PyJWT[crypto]>=2.15,<3"]
+[dependency-groups]
+dev = ["pytest>=8,<10", "pytest-asyncio>=0.24,<2"]
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+pythonpath = ["."]
