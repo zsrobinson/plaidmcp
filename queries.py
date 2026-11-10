@@ -1,6 +1,7 @@
 """Provider-independent questions over an aggregate-only snapshot."""
 from contextlib import closing
 from datetime import date, datetime, timedelta, timezone
+import telemetry
 import calendar
 import json
 import math
@@ -56,7 +57,9 @@ class Queries:
             raise ValueError('Invalid aggregate privacy/freshness configuration')
 
     def _read(self,fn):
-        with closing(sqlite3.connect(self.path.as_uri()+'?mode=ro',uri=True,timeout=5)) as db:
+        with telemetry.phase('db_open'):
+            connection = sqlite3.connect(self.path.as_uri()+'?mode=ro',uri=True,timeout=5)
+        with closing(connection) as db:
             db.row_factory=sqlite3.Row; db.execute('PRAGMA query_only=ON'); db.execute('BEGIN')
             sources=[]
             for raw in db.execute('SELECT * FROM sources ORDER BY institution,id'):
