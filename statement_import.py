@@ -3,6 +3,7 @@ import csv
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import stat
 from collections import Counter
@@ -18,7 +19,30 @@ ALIASES={
     'debit':('debit','debits','withdrawal','withdrawals'),
     'credit':('credit','credits','deposit','deposits'),
     'type':('type','transactiontype','debitcredit'),
+    'category':('category','transactioncategory'),
 }
+
+
+# Exact generic category names only, never arbitrary export text or bank labels.
+CATEGORY_PRIMARIES={
+    **dict.fromkeys(('dining','restaurants','groceries'),'FOOD_AND_DRINK'),
+    **dict.fromkeys(('gas','fuel','automotive','transportation'),'TRANSPORTATION'),
+    **dict.fromkeys(('merchandise','shopping'),'GENERAL_MERCHANDISE'),
+    'entertainment':'ENTERTAINMENT',
+    **dict.fromkeys(('travel','airfare','lodging'),'TRAVEL'),
+    **dict.fromkeys(('health','medical'),'MEDICAL'),
+    **dict.fromkeys(('fee','fees','interest'),'BANK_FEES'),
+    **dict.fromkeys(('payment','credit'),'LOAN_PAYMENTS'),
+}
+
+
+def card_payment(raw):
+    # Whole generic phrases, optionally followed by numeric references. Do not
+    # treat arbitrary "payment" text or a merchant's autopay purchase as a transfer.
+    words=re.sub(r'[^a-z0-9]+',' ',raw.casefold()).strip()
+    return bool(re.fullmatch(
+        r'(?:payment thank you|auto ?pay|mobile (?:pymt|payment)|online (?:payment|pmt)|'
+        r'credit card (?:payment|pmt)|crcardpmt)(?: [0-9]+)*',words))
 
 
 def indices(row, mapping):
@@ -67,12 +91,18 @@ def parse_statement(stream, mapping=None):
                 cents=amount*(explicit if explicit is not None else sign)
             raw=cell('description')
             rail=rail_kind(raw)
-            merchant=descriptor_label({'name':raw}) if not rail else None
-            primary='UNKNOWN';detail='UNKNOWN';flow='activity'
-            if rail in ('bank_transfer','peer_payment'):
+            primary=CATEGORY_PRIMARIES.get(norm(cell('category')),'UNKNOWN')
+            detail='UNKNOWN';flow='activity'
+            if rail=='peer_payment':
                 primary='TRANSFER_OUT' if cents>=0 else 'TRANSFER_IN'
-                detail=primary+('_PEER_TRANSFER' if rail=='peer_payment' else '_ACCOUNT_TRANSFER');flow=rail
-            elif rail: flow='excluded'
+                detail=primary+'_PEER_TRANSFER';flow=rail
+            elif rail=='excluded': flow='excluded'
+            elif primary=='LOAN_PAYMENTS' or card_payment(raw):
+                primary='LOAN_PAYMENTS';detail='LOAN_PAYMENTS_CREDIT_CARD_PAYMENT';flow='bank_transfer'
+            elif rail=='bank_transfer':
+                primary='TRANSFER_OUT' if cents>=0 else 'TRANSFER_IN'
+                detail=primary+'_ACCOUNT_TRANSFER';flow=rail
+            merchant=descriptor_label({'name':raw}) if flow=='activity' else None
             rows.append((when,cents,primary,detail,merchant,flow))
     except (ValueError,csv.Error,UnicodeError):
         raise ImportError('Invalid statement CSV') from None

@@ -252,7 +252,7 @@ Pending linked rows do not set the cutoff. With no posted history, import fails
 closed and retains files. Publication failures retain files for retry.
 
 Headers use generic aliases (transaction date preferred over posted date,
-description, amount, debit, credit); optional `PLAIDMCP_STATEMENT_COLUMN_MAP`
+description, amount, debit, credit, category); optional `PLAIDMCP_STATEMENT_COLUMN_MAP`
 JSON maps those field names to custom headers. US `MM/DD/YYYY` and ISO dates,
 BOMs, preambles and known balance/summary footers are supported. Debit/Credit
 columns express positive outflow/inflow magnitudes. A single signed Amount uses
@@ -261,6 +261,28 @@ Debit/Purchase/Withdrawal or Credit/Payment/Deposit/Refund gives explicit direct
 Conflicting signs fail closed. Check these conventions against your export;
 card formats with positive unsigned charges should supply Type or map Debit/Credit.
 No bank-specific parser or real export is bundled.
+
+Optional `Category` / `Transaction Category` headers (or a JSON `category` mapping)
+accept a fixed, generic allowlist: dining/restaurants/groceries map to
+`FOOD_AND_DRINK`; gas/fuel/automotive/transportation to `TRANSPORTATION`;
+merchandise/shopping to `GENERAL_MERCHANDISE`; entertainment to `ENTERTAINMENT`;
+travel/airfare/lodging to `TRAVEL`; health/medical to `MEDICAL`; and fee/fees/interest
+to `BANK_FEES`. Payment/credit categories map to `LOAN_PAYMENTS` with
+`LOAN_PAYMENTS_CREDIT_CARD_PAYMENT`. Unknown categories stay `UNKNOWN`.
+Only these fixed codes persist; raw category cells are discarded. Category does
+not change the amount's direction, and a Credit amount column alone does not
+imply a card payment.
+
+Whole generic payment descriptions such as `PAYMENT THANK YOU`, `AUTOPAY`,
+`MOBILE PYMT`, `ONLINE PAYMENT`, `CREDIT CARD PAYMENT` and `CRCARDPMT` also identify
+card payments, allowing punctuation and trailing numeric references. Arbitrary
+payment text or merchant autopay purchases do not match this narrow pattern.
+Both the checking outflow and the card credit use the same card-payment category
+and `bank_transfer` flow, never merchant spending or refunds. Explicit peer rails
+retain peer classification even if the export category says Payment. Payments
+can match as internal transfers under the existing mutually unique, opposite-cent,
+same-currency, distinct-account, three-day rule; unmatched legs remain bank
+transfers, excluded from default spending and income.
 
 Only sanitized dates, amounts, fixed categories, account attribution and
 conservative descriptor-derived business labels persist. Descriptions are used
