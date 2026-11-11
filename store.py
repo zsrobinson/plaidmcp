@@ -27,6 +27,7 @@ def connect(path):
     if 'merchant' not in columns: db.execute('ALTER TABLE transactions ADD COLUMN merchant TEXT')
     for column in ('merchant_source','flow_kind'):
         if column not in columns:db.execute('ALTER TABLE transactions ADD COLUMN '+column+' TEXT')
+    if 'origin' not in columns: db.execute("ALTER TABLE transactions ADD COLUMN origin TEXT NOT NULL DEFAULT 'plaid'")
     db.executescript("""
     CREATE TABLE IF NOT EXISTS account_identity(ref TEXT PRIMARY KEY, institution TEXT, type TEXT, subtype TEXT, name_key TEXT);
     CREATE TABLE IF NOT EXISTS account_alias(provider_ref TEXT, item TEXT, ref TEXT, PRIMARY KEY(provider_ref,item));

@@ -155,3 +155,5 @@ def refresh_sources(db,public,client_factory):
     client=client_factory() if credentials else None
     for key, in credentials:
         if enabled(db,key): PlaidSource(key,client).refresh(db,public)
+    from statement_import import import_configured
+    import_configured(db,public)

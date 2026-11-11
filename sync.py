@@ -45,7 +45,7 @@ def sync_item(db, client, row):
     for attempt in range(3):
         try:
             with db:
-                if backfill:db.execute('DELETE FROM transactions WHERE item=?',(item,))
+                if backfill:db.execute("DELETE FROM transactions WHERE item=? AND origin='plaid'",(item,))
                 meta = client.call('/item/get',access_token=token)['item']
                 if meta.get('error'): raise PlaidError(meta['error'].get('error_code','PLAID_ERROR'))
                 institution = client.call('/institutions/get_by_id',institution_id=institution_id,country_codes=['US'])['institution']['name']
