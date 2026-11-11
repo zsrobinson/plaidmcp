@@ -52,12 +52,32 @@ def render_page(csrf,institution,institution_name,linked,csv_source):
     return page
 
 
+def history_days(value):
+    try:
+        days=int(value)
+        if not 30<=days<=730: raise ValueError()
+        return days
+    except (ValueError, TypeError):
+        raise argparse.ArgumentTypeError('History days must be an integer from 30 to 730') from None
+
+
+def token_payload(product, existing=None, days_requested=730):
+    days=history_days(days_requested)
+    payload={'client_name':'Plaid MCP','user':{'client_user_id':'local-owner'},'country_codes':['US'],'language':'en'}
+    if existing: payload['access_token']=existing[1]
+    else:
+        payload['products']=[product]
+        if product=='transactions': payload['transactions']={'days_requested':days}
+    return payload
+
+
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('--institution',help='Optional verified institution ID; otherwise choose in the native Plaid Link search')
     parser.add_argument('--institution-name',help='Optional institution name hint to refuse wrong-bank selection before authentication')
     parser.add_argument('--product',choices=['transactions','investments'],required=True)
     parser.add_argument('--update',action='store_true',help='Re-link existing Item without consuming a slot')
+    parser.add_argument('--days-requested',type=history_days,default=730,help='Initial transactions history, 30–730 days (default 730)')
     args=parser.parse_args()
     if args.update and not args.institution: parser.error('--update requires --institution')
     client=Client()
@@ -102,9 +122,7 @@ def main():
                 try:
                     if self.path=='/token':
                         if Handler.issued: return self.reply(409,{'error':'Token already issued; restart helper to retry'})
-                        payload={'client_name':'Plaid MCP','user':{'client_user_id':'local-owner'},'country_codes':['US'],'language':'en'}
-                        if existing: payload['access_token']=existing[1]
-                        else: payload['products']=[args.product]
+                        payload=token_payload(args.product,existing,args.days_requested)
                         Handler.stage='link_token_create'
                         result=client.call('/link/token/create',**payload)
                         Handler.issued=True

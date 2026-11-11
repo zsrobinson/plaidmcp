@@ -216,3 +216,8 @@ Sync runs also emit `mcp_sync {"event":"mcp_sync","v":1,"ts":"<UTC ISO>","outcom
 Phases are `fetch`, `store`, `publish`. Counts are attempted credential items,
 received transaction pages (including retried pages), and pagination retries.
 Handled per-item failures mark the run as failed without changing sync behavior.
+
+New transaction Items request 730 days of history by default. Use Link's
+`--days-requested N` to choose 30–730 days. Institutions may return less history.
+Plaid ignores this initialization setting for already-initialized Items; update
+mode does not send it and cannot extend existing history.
