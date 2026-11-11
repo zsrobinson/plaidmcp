@@ -39,6 +39,23 @@ Opaque account ids and generated labels are described in [design.md](design.md).
 Filters are exact, case-sensitive discovered ids/names/category codes. Unknown
 valid ids/names/codes return empty results; malformed ids/dates/groupings fail.
 
+## Account scope
+
+`overview`, `cash_flow`, `balance_summary` and `merchant_totals` accept
+`scope: "all" | "own" | "separate"` (default `"all"`). Own excludes accounts
+marked in private `PLAIDMCP_SEPARATE_ACCOUNTS`; separate includes only those
+accounts. Membership is published at sync and applies to historical activity too.
+Account/institution filters intersect scope. Discovery remains complete;
+`list_accounts` includes each account's own/separate scope label.
+
+Merchant windows apply min-count folding separately inside each scope before
+publication. Counts from all cannot qualify a name inside own or separate.
+Scoped recurrence uses only within-scope cadence; source-level provider hints
+remain available for all. Transfer matching is computed across accounts before
+scoping. Changing scope does not reclassify a matched internal transfer.
+Unknown ids in private scope config fail publication with a fixed message.
+Re-publish snapshots before serving this schema.
+
 ## Output structures
 
 ### overview
@@ -216,11 +233,22 @@ spending offsets, already included as negative spending; do not add them to inco
 
 ### overview
 
-Start here for 'how are my finances?': net worth, cash/invested/credit owed, month-to-date spending, prior full month and same elapsed days, trailing-six-full-month median, and top current categories. Decimal amounts per currency; spending positive/refunds negative; liabilities positive owed. Transfers/peer payments excluded. Null median means less than six observed calendar months; no assumption that missing history is zero. Coverage/freshness is not a guarantee every transaction has arrived. Every result includes per-source as_of and unreliable_sources. All monetary values are decimal units of the returned currency (USD means dollars); no currency conversion. Spending is positive, refunds negative, liabilities positive owed. Read per-source as_of and unreliable_sources.
+Scope all (default) includes every account; own excludes privately marked separate accounts; separate includes only those accounts. Membership reflects the last sync. Start here for 'how are my finances?': net worth, cash/invested/credit owed, month-to-date spending, prior full month and same elapsed days, trailing-six-full-month median, and top current categories. Decimal amounts per currency; spending positive/refunds negative; liabilities positive owed. Transfers/peer payments excluded. Null median means less than six observed calendar months; no assumption that missing history is zero. Coverage/freshness is not a guarantee every transaction has arrived. Every result includes per-source as_of and unreliable_sources. All monetary values are decimal units of the returned currency (USD means dollars); no currency conversion. Spending is positive, refunds negative, liabilities positive owed. Read per-source as_of and unreliable_sources.
 
 ```json
 {
-  "properties": {},
+  "properties": {
+    "scope": {
+      "default": "all",
+      "enum": [
+        "all",
+        "own",
+        "separate"
+      ],
+      "title": "Scope",
+      "type": "string"
+    }
+  },
   "title": "overviewArguments",
   "type": "object"
 }
@@ -298,7 +326,7 @@ Learn plaidmcp's source-independent category and detailed-category filter codes.
 
 ### cash_flow
 
-Answer spending/income questions by category, detailed category, month, ISO Monday week, account or institution. Dates YYYY-MM-DD: start inclusive/end exclusive; default month-to-date. Use ids/names/codes from discovery. Decimal amounts per currency (USD stays USD): spending positive, refunds negative; income/transfer receipts positive; net=inflow-outflow. Bank/card transfers and peer payments default excluded independently. Peer opt-in treats receipts as income and sent payments as spending, not taxable-income classification. Returns counts, spending averages per calendar-month equivalent and seven-day week, totals and optional comparison period with absolute/percent deltas (null at zero baseline). Internal transfers are matched across linked accounts by exact cents/currency within three calendar days, only when both sides are transfer-classified and mutually unique. They are shown in internal_transfers_in/out/net but never income/spending or the net flow. Ambiguous/unmatched bank transfers stay in transfers_in/out (include_transfers opt-in). Payroll, interest, other_income and p2p_received (peer opt-in) are distinct; refunds are positive informational offsets already subtracted from spending, not counted again as income. Matching is an evidence-based heuristic, not proof of ownership. No transaction details. min_group_count folds small groups into Other; it is not differential privacy. All monetary values are decimal units of the returned currency (USD means dollars); no currency conversion. Spending is positive, refunds negative, liabilities positive owed. Read per-source as_of and unreliable_sources.
+Scope all (default) includes every account; own excludes privately marked separate accounts; separate includes only those accounts. Membership reflects the last sync. Answer spending/income questions by category, detailed category, month, ISO Monday week, account or institution. Dates YYYY-MM-DD: start inclusive/end exclusive; default month-to-date. Use ids/names/codes from discovery. Decimal amounts per currency (USD stays USD): spending positive, refunds negative; income/transfer receipts positive; net=inflow-outflow. Bank/card transfers and peer payments default excluded independently. Peer opt-in treats receipts as income and sent payments as spending, not taxable-income classification. Returns counts, spending averages per calendar-month equivalent and seven-day week, totals and optional comparison period with absolute/percent deltas (null at zero baseline). Internal transfers are matched across linked accounts by exact cents/currency within three calendar days, only when both sides are transfer-classified and mutually unique. They are shown in internal_transfers_in/out/net but never income/spending or the net flow. Ambiguous/unmatched bank transfers stay in transfers_in/out (include_transfers opt-in). Payroll, interest, other_income and p2p_received (peer opt-in) are distinct; refunds are positive informational offsets already subtracted from spending, not counted again as income. Matching is an evidence-based heuristic, not proof of ownership. No transaction details. min_group_count folds small groups into Other; it is not differential privacy. All monetary values are decimal units of the returned currency (USD means dollars); no currency conversion. Spending is positive, refunds negative, liabilities positive owed. Read per-source as_of and unreliable_sources.
 
 ```json
 {
@@ -412,6 +440,16 @@ Answer spending/income questions by category, detailed category, month, ISO Mond
       ],
       "default": null,
       "title": "Compare End"
+    },
+    "scope": {
+      "default": "all",
+      "enum": [
+        "all",
+        "own",
+        "separate"
+      ],
+      "title": "Scope",
+      "type": "string"
     }
   },
   "title": "cash_flowArguments",
@@ -421,7 +459,7 @@ Answer spending/income questions by category, detailed category, month, ISO Mond
 
 ### balance_summary
 
-Answer net-worth and balance questions by type, account or institution. Decimal currency units; assets/cash/invested positive, liabilities and credit_owed positive amounts owed (negative for an actual credit balance), net_worth=assets-liabilities. Excludes historical accounts and counts unknown balances (including statement wallets) instead of inventing zero; totals with unknown_balances are partial. Investments use account balances, never balance plus holdings. No currency conversion. All monetary values are decimal units of the returned currency (USD means dollars); no currency conversion. Spending is positive, refunds negative, liabilities positive owed. Read per-source as_of and unreliable_sources.
+Scope all (default) includes every account; own excludes privately marked separate accounts; separate includes only those accounts. Membership reflects the last sync. Answer net-worth and balance questions by type, account or institution. Decimal currency units; assets/cash/invested positive, liabilities and credit_owed positive amounts owed (negative for an actual credit balance), net_worth=assets-liabilities. Excludes historical accounts and counts unknown balances (including statement wallets) instead of inventing zero; totals with unknown_balances are partial. Investments use account balances, never balance plus holdings. No currency conversion. All monetary values are decimal units of the returned currency (USD means dollars); no currency conversion. Spending is positive, refunds negative, liabilities positive owed. Read per-source as_of and unreliable_sources.
 
 ```json
 {
@@ -462,6 +500,16 @@ Answer net-worth and balance questions by type, account or institution. Decimal 
       ],
       "default": null,
       "title": "Institution"
+    },
+    "scope": {
+      "default": "all",
+      "enum": [
+        "all",
+        "own",
+        "separate"
+      ],
+      "title": "Scope",
+      "type": "string"
     }
   },
   "title": "balance_summaryArguments",
@@ -522,7 +570,7 @@ Answer portfolio/allocation questions by security, account, asset_class or secur
 
 ### merchant_totals
 
-Answer 'which businesses do I spend with, and what is my monthly average?' Returns only normalized business-name aggregates, positive spending/refunds negative, decimal units separated by currency. Windows: month_to_date, last_month, or last_3/6/12_months (completed UTC calendar months), or all_history (observed span). Set recurring_only=true to find subscription candidates. merchant_source identifies provider_name, descriptor_fallback, mixed or unknown. Descriptor fallback only recognizes conservative public business patterns; ambiguous/person/transfer descriptions never become merchant labels. Venmo is excluded entirely. No arbitrary dates, account/merchant filters or single purchases. At least max(2,min_group_count) purchases per named merchant/window; smaller groups fold into Other. Other with too few purchases has null total/average. Monthly average divides the window total by its calendar-month equivalents. Recurring uses provider patterns when available, otherwise at least two regularly spaced charges with amounts within 25%. Returns frequency (weekly/monthly/quarterly/yearly), typical_charge (median positive charges), last_charged_month (YYYY-MM only), active (last charge within 1.5 periods), recurring_method. These are candidates, not guaranteed subscriptions. Short history cannot establish yearly recurrence; never infer a yearly plan from only a few months. Provider BIWEEKLY/SEMI_MONTHLY is not forced into a different frequency. All Venmo rows are excluded from merchant naming; people, notes, usernames and peer/bank transfers are excluded. Use cash_flow(include_peer_transfers=true) for peer buckets. Snapshot windows are computed at sync; every result includes source freshness. All monetary values are decimal units of the returned currency (USD means dollars); no currency conversion. Spending is positive, refunds negative, liabilities positive owed. Read per-source as_of and unreliable_sources.
+Scope all (default) includes every account; own excludes privately marked separate accounts; separate includes only those accounts. Membership reflects the last sync. Answer 'which businesses do I spend with, and what is my monthly average?' Returns only normalized business-name aggregates, positive spending/refunds negative, decimal units separated by currency. Windows: month_to_date, last_month, or last_3/6/12_months (completed UTC calendar months), or all_history (observed span). Set recurring_only=true to find subscription candidates. merchant_source identifies provider_name, descriptor_fallback, mixed or unknown. Descriptor fallback only recognizes conservative public business patterns; ambiguous/person/transfer descriptions never become merchant labels. Venmo is excluded entirely. No arbitrary dates, account/merchant filters or single purchases. At least max(2,min_group_count) purchases per named merchant/window; smaller groups fold into Other. Other with too few purchases has null total/average. Monthly average divides the window total by its calendar-month equivalents. Recurring uses provider patterns when available, otherwise at least two regularly spaced charges with amounts within 25%. Returns frequency (weekly/monthly/quarterly/yearly), typical_charge (median positive charges), last_charged_month (YYYY-MM only), active (last charge within 1.5 periods), recurring_method. These are candidates, not guaranteed subscriptions. Short history cannot establish yearly recurrence; never infer a yearly plan from only a few months. Provider BIWEEKLY/SEMI_MONTHLY is not forced into a different frequency. All Venmo rows are excluded from merchant naming; people, notes, usernames and peer/bank transfers are excluded. Use cash_flow(include_peer_transfers=true) for peer buckets. Snapshot windows are computed at sync; every result includes source freshness. All monetary values are decimal units of the returned currency (USD means dollars); no currency conversion. Spending is positive, refunds negative, liabilities positive owed. Read per-source as_of and unreliable_sources.
 
 ```json
 {
@@ -544,6 +592,16 @@ Answer 'which businesses do I spend with, and what is my monthly average?' Retur
       "default": false,
       "title": "Recurring Only",
       "type": "boolean"
+    },
+    "scope": {
+      "default": "all",
+      "enum": [
+        "all",
+        "own",
+        "separate"
+      ],
+      "title": "Scope",
+      "type": "string"
     }
   },
   "title": "merchant_totalsArguments",

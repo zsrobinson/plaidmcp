@@ -14,6 +14,7 @@ from typing import Literal
 ActivityGroup = Literal['category','category_detailed','month','week','account','institution']
 HoldingGroup = Literal['security','account','asset_class','security_type']
 BalanceGroup = Literal['type','account','institution']
+Scope = Literal['all','own','separate']
 MerchantWindow = Literal['month_to_date','last_month','last_3_months','last_6_months','last_12_months','all_history']
 
 
@@ -74,8 +75,11 @@ class Queries:
                 'unreliable_sources':[s for s in sources if s['status']!='healthy' or s['freshness']!='current'], 'data':data}
 
     @staticmethod
-    def _filters(account_ids,institution,alias='a'):
+    def _filters(account_ids,institution,alias='a',scope='all'):
+        from account_scope import validate_scope
+        validate_scope(scope)
         clauses=[];args=[]
+        if scope!='all': clauses.append(alias+'.scope=?');args.append(scope)
         if account_ids is not None:
             if not account_ids or len(account_ids)>100: raise ValueError('Supply 1–100 opaque ids from list_accounts')
             if any(not isinstance(a,str) or not a.startswith('acct_') for a in account_ids): raise ValueError('Use account ids from list_accounts')
@@ -120,13 +124,13 @@ class Queries:
             return rows
         return self._read(read)
 
-    def _activity(self,db,group_by,start,end,account_ids,institution,category,include_transfers,include_peer_transfers):
+    def _activity(self,db,group_by,start,end,account_ids,institution,category,include_transfers,include_peer_transfers,scope='all'):
         expressions={'category':('d.category','d.category'),'category_detailed':('d.category_detailed','d.category_detailed'),
             'month':("substr(d.day,1,7)","substr(d.day,1,7)"),
             'week':("date(d.day,'-' || ((cast(strftime('%w',d.day) AS integer)+6)%7) || ' days')", "date(d.day,'-' || ((cast(strftime('%w',d.day) AS integer)+6)%7) || ' days')"),
             'account':('a.id','a.display_name'),'institution':('a.institution','a.institution')}
         if group_by not in expressions: raise ValueError('Invalid activity grouping')
-        where,args=self._filters(account_ids,institution)
+        where,args=self._filters(account_ids,institution,scope=scope)
         where+=' AND d.day>=? AND d.day<?';args.extend((start,end))
         if category is not None: where+=' AND (d.category=? OR d.category_detailed=?)';args.extend((category,category))
         if not include_transfers: where+=" AND d.category!='bank_transfer'"
@@ -167,16 +171,16 @@ class Queries:
     def cash_flow(self,group_by:ActivityGroup='month',start:str|None=None,end:str|None=None,
         account_ids:list[str]|None=None,institution:str|None=None,category:str|None=None,
         include_transfers:bool=False,include_peer_transfers:bool=False,
-        compare_start:str|None=None,compare_end:str|None=None) -> dict:
-        """Answer spending/income questions by category, detailed category, month, ISO Monday week, account or institution. Dates YYYY-MM-DD: start inclusive/end exclusive; default month-to-date. Use ids/names/codes from discovery. Decimal amounts per currency (USD stays USD): spending positive, refunds negative; income/transfer receipts positive; net=inflow-outflow. Bank/card transfers and peer payments default excluded independently. Peer opt-in treats receipts as income and sent payments as spending, not taxable-income classification. Returns counts, spending averages per calendar-month equivalent and seven-day week, totals and optional comparison period with absolute/percent deltas (null at zero baseline). Internal transfers are matched across linked accounts by exact cents/currency within three calendar days, only when both sides are transfer-classified and mutually unique. They are shown in internal_transfers_in/out/net but never income/spending or the net flow. Ambiguous/unmatched bank transfers stay in transfers_in/out (include_transfers opt-in). Payroll, interest, other_income and p2p_received (peer opt-in) are distinct; refunds are positive informational offsets already subtracted from spending, not counted again as income. Matching is an evidence-based heuristic, not proof of ownership. No transaction details. min_group_count folds small groups into Other; it is not differential privacy."""
+        compare_start:str|None=None,compare_end:str|None=None,scope:Scope='all') -> dict:
+        """Scope all (default) includes every account; own excludes privately marked separate accounts; separate includes only those accounts. Membership reflects the last sync. Answer spending/income questions by category, detailed category, month, ISO Monday week, account or institution. Dates YYYY-MM-DD: start inclusive/end exclusive; default month-to-date. Use ids/names/codes from discovery. Decimal amounts per currency (USD stays USD): spending positive, refunds negative; income/transfer receipts positive; net=inflow-outflow. Bank/card transfers and peer payments default excluded independently. Peer opt-in treats receipts as income and sent payments as spending, not taxable-income classification. Returns counts, spending averages per calendar-month equivalent and seven-day week, totals and optional comparison period with absolute/percent deltas (null at zero baseline). Internal transfers are matched across linked accounts by exact cents/currency within three calendar days, only when both sides are transfer-classified and mutually unique. They are shown in internal_transfers_in/out/net but never income/spending or the net flow. Ambiguous/unmatched bank transfers stay in transfers_in/out (include_transfers opt-in). Payroll, interest, other_income and p2p_received (peer opt-in) are distinct; refunds are positive informational offsets already subtracted from spending, not counted again as income. Matching is an evidence-based heuristic, not proof of ownership. No transaction details. min_group_count folds small groups into Other; it is not differential privacy."""
         start,end=default_period(start,end)
         if bool(compare_start)!=bool(compare_end): raise ValueError('Supply both comparison dates')
         if compare_start: compare_start,compare_end=default_period(compare_start,compare_end)
         def read(db,sources):
-            result=self._activity(db,group_by,start,end,account_ids,institution,category,include_transfers,include_peer_transfers)
+            result=self._activity(db,group_by,start,end,account_ids,institution,category,include_transfers,include_peer_transfers,scope)
             result['comparison']=None
             if compare_start:
-                other=self._activity(db,group_by,compare_start,compare_end,account_ids,institution,category,include_transfers,include_peer_transfers)
+                other=self._activity(db,group_by,compare_start,compare_end,account_ids,institution,category,include_transfers,include_peer_transfers,scope)
                 def deltas(current,previous):
                     previous={r['currency']:r for r in previous};current={r['currency']:r for r in current};out=[]
                     for currency in sorted(previous.keys()|current.keys()):
@@ -191,14 +195,16 @@ class Queries:
             return result
         return self._read(read)
 
-    def merchant_totals(self,window:MerchantWindow='last_6_months',recurring_only:bool=False) -> dict:
-        """Answer 'which businesses do I spend with, and what is my monthly average?' Returns only normalized business-name aggregates, positive spending/refunds negative, decimal units separated by currency. Windows: month_to_date, last_month, or last_3/6/12_months (completed UTC calendar months), or all_history (observed span). Set recurring_only=true to find subscription candidates. merchant_source identifies provider_name, descriptor_fallback, mixed or unknown. Descriptor fallback only recognizes conservative public business patterns; ambiguous/person/transfer descriptions never become merchant labels. Venmo is excluded entirely. No arbitrary dates, account/merchant filters or single purchases. At least max(2,min_group_count) purchases per named merchant/window; smaller groups fold into Other. Other with too few purchases has null total/average. Monthly average divides the window total by its calendar-month equivalents. Recurring uses provider patterns when available, otherwise at least two regularly spaced charges with amounts within 25%. Returns frequency (weekly/monthly/quarterly/yearly), typical_charge (median positive charges), last_charged_month (YYYY-MM only), active (last charge within 1.5 periods), recurring_method. These are candidates, not guaranteed subscriptions. Short history cannot establish yearly recurrence; never infer a yearly plan from only a few months. Provider BIWEEKLY/SEMI_MONTHLY is not forced into a different frequency. All Venmo rows are excluded from merchant naming; people, notes, usernames and peer/bank transfers are excluded. Use cash_flow(include_peer_transfers=true) for peer buckets. Snapshot windows are computed at sync; every result includes source freshness."""
+    def merchant_totals(self,window:MerchantWindow='last_6_months',recurring_only:bool=False,scope:Scope='all') -> dict:
+        """Scope all (default) includes every account; own excludes privately marked separate accounts; separate includes only those accounts. Membership reflects the last sync. Answer 'which businesses do I spend with, and what is my monthly average?' Returns only normalized business-name aggregates, positive spending/refunds negative, decimal units separated by currency. Windows: month_to_date, last_month, or last_3/6/12_months (completed UTC calendar months), or all_history (observed span). Set recurring_only=true to find subscription candidates. merchant_source identifies provider_name, descriptor_fallback, mixed or unknown. Descriptor fallback only recognizes conservative public business patterns; ambiguous/person/transfer descriptions never become merchant labels. Venmo is excluded entirely. No arbitrary dates, account/merchant filters or single purchases. At least max(2,min_group_count) purchases per named merchant/window; smaller groups fold into Other. Other with too few purchases has null total/average. Monthly average divides the window total by its calendar-month equivalents. Recurring uses provider patterns when available, otherwise at least two regularly spaced charges with amounts within 25%. Returns frequency (weekly/monthly/quarterly/yearly), typical_charge (median positive charges), last_charged_month (YYYY-MM only), active (last charge within 1.5 periods), recurring_method. These are candidates, not guaranteed subscriptions. Short history cannot establish yearly recurrence; never infer a yearly plan from only a few months. Provider BIWEEKLY/SEMI_MONTHLY is not forced into a different frequency. All Venmo rows are excluded from merchant naming; people, notes, usernames and peer/bank transfers are excluded. Use cash_flow(include_peer_transfers=true) for peer buckets. Snapshot windows are computed at sync; every result includes source freshness."""
+        from account_scope import validate_scope
+        validate_scope(scope)
         from merchants import WINDOWS
         if window not in WINDOWS:raise ValueError('Use a discovered supported merchant window')
         def read(db,sources):
             rows=[]
             threshold=max(2,self.minimum)
-            sql='''WITH folded AS (SELECT CASE WHEN purchase_count<? THEN 'Other' ELSE merchant END AS label,* FROM merchants WHERE window=?),
+            sql='''WITH folded AS (SELECT CASE WHEN purchase_count<? THEN 'Other' ELSE merchant END AS label,* FROM merchants WHERE window=? AND scope=?),
                 grouped AS (SELECT label AS merchant,currency,CASE WHEN COUNT(total)=COUNT(*) AND SUM(purchase_count)>=? THEN ROUND(SUM(total),2) END AS total,
                 SUM(purchase_count) AS purchase_count,MAX(months) AS months,
                 CASE WHEN label!='Other' THEN MAX(recurring) END AS recurring,
@@ -209,7 +215,7 @@ class Queries:
                 CASE WHEN label!='Other' THEN MAX(recurring_method) END AS recurring_method,
                 CASE WHEN label!='Other' THEN CASE WHEN MIN(merchant_source)=MAX(merchant_source) THEN MIN(merchant_source) ELSE 'mixed' END ELSE 'unknown' END AS merchant_source FROM folded GROUP BY label,currency)
                 SELECT * FROM grouped WHERE ?=0 OR recurring=1 ORDER BY currency,total DESC,merchant'''
-            for raw in db.execute(sql,(threshold,window,threshold,recurring_only)):
+            for raw in db.execute(sql,(threshold,window,scope,threshold,recurring_only)):
                 row=dict(raw);months=row.pop('months')
                 row['monthly_average']=round(row['total']/months,2) if row['total'] is not None else None
                 row['recurring']=bool(row['recurring']) if row['recurring'] is not None else None
@@ -219,11 +225,11 @@ class Queries:
             return {'window':window,'recurring_only':recurring_only,'merchants':rows}
         return self._read(read)
 
-    def _balances(self,db,group_by,account_ids,institution):
+    def _balances(self,db,group_by,account_ids,institution,scope='all'):
         if group_by not in ('type','account','institution'): raise ValueError('Invalid balance grouping')
         key={'type':'a.type','account':'a.id','institution':'a.institution'}[group_by]
         label='a.display_name' if group_by=='account' else key
-        where,args=self._filters(account_ids,institution)
+        where,args=self._filters(account_ids,institution,scope=scope)
         where+=" AND a.availability!='historical'"
         rows=[dict(r) for r in db.execute(f'''SELECT {key} AS 'group',{label} AS label,currency,
           SUM(CASE WHEN type NOT IN ('credit','loan') THEN current ELSE 0 END) AS assets,
@@ -243,9 +249,9 @@ class Queries:
           FROM accounts a WHERE 1=1 {where} GROUP BY currency''',args)]
         return {'group_by':group_by,'groups':rows,'totals':totals}
 
-    def balance_summary(self,group_by:BalanceGroup='type',account_ids:list[str]|None=None,institution:str|None=None) -> dict:
-        """Answer net-worth and balance questions by type, account or institution. Decimal currency units; assets/cash/invested positive, liabilities and credit_owed positive amounts owed (negative for an actual credit balance), net_worth=assets-liabilities. Excludes historical accounts and counts unknown balances (including statement wallets) instead of inventing zero; totals with unknown_balances are partial. Investments use account balances, never balance plus holdings. No currency conversion."""
-        return self._read(lambda db,sources:self._balances(db,group_by,account_ids,institution))
+    def balance_summary(self,group_by:BalanceGroup='type',account_ids:list[str]|None=None,institution:str|None=None,scope:Scope='all') -> dict:
+        """Scope all (default) includes every account; own excludes privately marked separate accounts; separate includes only those accounts. Membership reflects the last sync. Answer net-worth and balance questions by type, account or institution. Decimal currency units; assets/cash/invested positive, liabilities and credit_owed positive amounts owed (negative for an actual credit balance), net_worth=assets-liabilities. Excludes historical accounts and counts unknown balances (including statement wallets) instead of inventing zero; totals with unknown_balances are partial. Investments use account balances, never balance plus holdings. No currency conversion."""
+        return self._read(lambda db,sources:self._balances(db,group_by,account_ids,institution,scope))
 
     def holdings(self,group_by:HoldingGroup='security',account_ids:list[str]|None=None,institution:str|None=None) -> dict:
         """Answer portfolio/allocation questions by security, account, asset_class or security_type. Decimal currency value/cost_basis/unrealized_gain=value-cost_basis; quantity is units and only meaningful per security. Missing basis/gain stays null. Allocation percentages are within the filtered portfolio per currency. Security rows include ticker/name; account ids match list_accounts. No trades, owners or account numbers. Small position groups fold into Other when configured."""
@@ -272,8 +278,8 @@ class Queries:
             return {'group_by':group_by,'groups':rows,'totals':totals}
         return self._read(read)
 
-    def overview(self) -> dict:
-        """Start here for 'how are my finances?': net worth, cash/invested/credit owed, month-to-date spending, prior full month and same elapsed days, trailing-six-full-month median, and top current categories. Decimal amounts per currency; spending positive/refunds negative; liabilities positive owed. Transfers/peer payments excluded. Null median means less than six observed calendar months; no assumption that missing history is zero. Coverage/freshness is not a guarantee every transaction has arrived. Every result includes per-source as_of and unreliable_sources."""
+    def overview(self,scope:Scope='all') -> dict:
+        """Scope all (default) includes every account; own excludes privately marked separate accounts; separate includes only those accounts. Membership reflects the last sync. Start here for 'how are my finances?': net worth, cash/invested/credit owed, month-to-date spending, prior full month and same elapsed days, trailing-six-full-month median, and top current categories. Decimal amounts per currency; spending positive/refunds negative; liabilities positive owed. Transfers/peer payments excluded. Null median means less than six observed calendar months; no assumption that missing history is zero. Coverage/freshness is not a guarantee every transaction has arrived. Every result includes per-source as_of and unreliable_sources."""
         today=today_utc();start=today.replace(day=1);end=today+timedelta(days=1)
         n=start.year*12+start.month-2
         prev=date(n//12,n%12+1,1)
@@ -282,10 +288,10 @@ class Queries:
         n=start.year*12+start.month-7
         trailing=date(n//12,n%12+1,1)
         def read(db,sources):
-            current=self._activity(db,'category',start.isoformat(),end.isoformat(),None,None,None,False,False)
-            previous=self._activity(db,'month',prev.isoformat(),prev_end.isoformat(),None,None,None,False,False)
-            elapsed=self._activity(db,'month',prev.isoformat(),previous_elapsed.isoformat(),None,None,None,False,False)
-            typical=self._activity(db,'month',trailing.isoformat(),start.isoformat(),None,None,None,False,False)
+            current=self._activity(db,'category',start.isoformat(),end.isoformat(),None,None,None,False,False,scope)
+            previous=self._activity(db,'month',prev.isoformat(),prev_end.isoformat(),None,None,None,False,False,scope)
+            elapsed=self._activity(db,'month',prev.isoformat(),previous_elapsed.isoformat(),None,None,None,False,False,scope)
+            typical=self._activity(db,'month',trailing.isoformat(),start.isoformat(),None,None,None,False,False,scope)
             medians=[]
             currencies={r['currency'] for r in current['totals']}|{r['currency'] for r in typical['groups']}
             for currency in sorted(currencies):
@@ -304,7 +310,7 @@ class Queries:
                     row[label]={'spending':baseline,'delta':delta,'percent_change':round(100*delta/abs(baseline),2) if baseline and delta is not None else None}
                 comparisons.append(row)
             top=sorted(current['groups'],key=lambda r:r['spending'],reverse=True)[:5]
-            return {'balances':self._balances(db,'type',None,None),'month_to_date':current['totals'],
+            return {'balances':self._balances(db,'type',None,None,scope),'month_to_date':current['totals'],
               'last_month':previous['totals'],'last_month_same_elapsed_days':elapsed['totals'],
               'typical_month':medians,'spending_comparisons':comparisons,'top_categories':top,'start':start.isoformat(),'end':end.isoformat()}
         return self._read(read)

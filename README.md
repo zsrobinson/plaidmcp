@@ -221,3 +221,19 @@ New transaction Items request 730 days of history by default. Use Link's
 `--days-requested N` to choose 30–730 days. Institutions may return less history.
 Plaid ignores this initialization setting for already-initialized Items; update
 mode does not send it and cannot extend existing history.
+## Account scopes
+
+Set `PLAIDMCP_SEPARATE_ACCOUNTS=acct_example,acct_other` in private sync config
+using stable opaque ids from `list_accounts`. Unknown ids fail with a fixed error
+and preserve the prior snapshot. Run sync again after changing membership.
+`overview`, `cash_flow`, `balance_summary` and `merchant_totals` accept
+`scope="all"` (default), `"own"` or `"separate"`. Own excludes marked accounts;
+separate includes only marked accounts. Existing account/institution filters
+intersect the chosen scope. Historical accounts retain their scope.
+
+Merchant windows are published independently for each scope; each applies the
+same minimum purchase count before publication. Scoped subscription candidates
+use cadence inside that scope because provider stream hints lack safe account
+attribution. Transfers retain their cross-account matching classification when
+viewed through a scope. These overlapping aggregates are not differential privacy.
+Re-publish before serving the new schema; all remains the compatibility default.

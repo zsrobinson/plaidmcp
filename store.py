@@ -139,6 +139,10 @@ def publish(db, path, sources=None):
                         verb='INSERT OR REPLACE INTO '
                     if table=='daily' and len(row)==13:row=(*row,0,0,0,0,0,0)
                     out.execute(verb+table+' VALUES('+','.join('?' for _ in row)+')',row)
+        from account_scope import separate_accounts
+        separate=separate_accounts(db)
+        out.execute("ALTER TABLE accounts ADD COLUMN scope TEXT NOT NULL DEFAULT 'own'")
+        out.executemany("UPDATE accounts SET scope='separate' WHERE id=?",[(ref,) for ref in separate])
         publish_merchants(db,out)
         out.commit(); out.close()
         os.chmod(temp,0o640)
