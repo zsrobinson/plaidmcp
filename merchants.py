@@ -5,7 +5,7 @@ import re
 import unicodedata
 
 WINDOWS=('month_to_date','last_month','last_3_months','last_6_months','last_12_months','all_history')
-MERCHANT_SCHEMA='''CREATE TABLE merchants(window TEXT,merchant TEXT,currency TEXT,total REAL,purchase_count INTEGER,months REAL,recurring INTEGER,frequency TEXT,typical_charge REAL,last_charged_month TEXT,active INTEGER,recurring_method TEXT,merchant_source TEXT,PRIMARY KEY(window,merchant,currency));'''
+MERCHANT_SCHEMA='''CREATE TABLE merchants(window TEXT,merchant TEXT,currency TEXT,total REAL,purchase_count INTEGER,months REAL,recurring INTEGER,frequency TEXT,typical_charge REAL,last_charged_month TEXT,active INTEGER,recurring_method TEXT,merchant_source TEXT,scope TEXT,PRIMARY KEY(window,scope,merchant,currency));'''
 
 
 def normalized_name(value):
@@ -83,40 +83,50 @@ def publish_merchants(db,out,today=None):
     excluded=' AND COALESCE(s.ref,\'\') NOT IN ('+','.join('?' for _ in disabled)+')' if disabled else ''
     today=today or today_utc()
     earliest=db.execute('SELECT MIN(date) FROM transactions WHERE pending=0').fetchone()[0]
-    for window,start,end,months in window_bounds(today,earliest):
-        sql=f"""WITH eligible AS (
-          SELECT t.date,t.amount,t.currency,COALESCE(t.merchant,'Other') AS merchant,t.merchant_source FROM transactions t
-          JOIN items i ON i.id=t.item LEFT JOIN source_identity s ON s.provider_ref=t.item
-          WHERE t.pending=0 AND lower(i.institution) NOT LIKE '%venmo%' AND t.flow_kind='activity' AND t.primary_category!='INCOME' AND NOT EXISTS (SELECT 1 FROM internal_matches x WHERE x.item=t.item AND x.transaction_ref=t.id) AND t.date>=? AND t.date<? {excluded}),
-          charges AS (SELECT *,julianday(date)-julianday(LAG(date) OVER(PARTITION BY merchant COLLATE NOCASE,currency ORDER BY date)) AS gap,
-            ROW_NUMBER() OVER(PARTITION BY merchant COLLATE NOCASE,currency ORDER BY amount) AS amount_rank,
-            COUNT(*) OVER(PARTITION BY merchant COLLATE NOCASE,currency) AS n FROM eligible WHERE amount>0),
-          cadence AS (SELECT merchant,currency,
-            CASE WHEN COUNT(*)>=2 AND MIN(amount)>0 AND MAX(amount)<=MIN(amount)*1.25 THEN CASE
-              WHEN MIN(gap)>=5 AND MAX(gap)<=9 THEN 'weekly'
-              WHEN MIN(gap)>=25 AND MAX(gap)<=35 THEN 'monthly'
-              WHEN MIN(gap)>=80 AND MAX(gap)<=100 THEN 'quarterly'
-              WHEN MIN(gap)>=350 AND MAX(gap)<=380 THEN 'yearly' END END AS frequency,
-            AVG(CASE WHEN amount_rank IN ((n+1)/2,(n+2)/2) THEN amount END) AS typical_charge,
-            MAX(date) AS last_day FROM charges GROUP BY merchant COLLATE NOCASE,currency),
-          hints AS (SELECT r.merchant,r.currency,MIN(r.frequency) AS frequency,MIN(r.active) AS active
-            FROM recurring_merchants r LEFT JOIN source_identity s ON s.provider_ref=r.item
-            WHERE r.frequency IS NOT NULL {excluded} GROUP BY r.merchant COLLATE NOCASE,r.currency HAVING COUNT(DISTINCT r.frequency)=1),
-          grouped AS (SELECT MIN(e.merchant) AS merchant,e.currency,SUM(e.amount) AS total,SUM(e.amount>0) AS purchase_count,
-            COALESCE(h.frequency,c.frequency) AS frequency,c.typical_charge,c.last_day,
-            CASE WHEN h.frequency IS NOT NULL THEN 'provider_pattern' ELSE 'cadence_heuristic' END AS method,
-            COALESCE(h.active,1) AS provider_active,CASE WHEN MIN(e.merchant_source)=MAX(e.merchant_source) THEN MIN(e.merchant_source) ELSE 'mixed' END AS merchant_source
-            FROM eligible e LEFT JOIN cadence c ON c.merchant=e.merchant COLLATE NOCASE AND c.currency=e.currency
-            LEFT JOIN hints h ON h.merchant=e.merchant COLLATE NOCASE AND h.currency=e.currency GROUP BY e.merchant COLLATE NOCASE,e.currency),
-          folded AS (SELECT CASE WHEN purchase_count<? THEN 'Other' ELSE merchant END AS merchant,currency,total,purchase_count,
-            CASE WHEN purchase_count<? THEN NULL ELSE frequency END AS frequency,typical_charge,last_day,method,provider_active,merchant_source FROM grouped)
-          SELECT merchant,currency,CASE WHEN SUM(purchase_count)>=? THEN ROUND(SUM(total),2) END,SUM(purchase_count),
-            CASE WHEN merchant!='Other' THEN MAX(frequency) END,
-            CASE WHEN merchant!='Other' AND MAX(frequency) IS NOT NULL THEN ROUND(MAX(typical_charge),2) END,
-            CASE WHEN merchant!='Other' AND MAX(frequency) IS NOT NULL THEN substr(MAX(last_day),1,7) END,
-            CASE WHEN merchant!='Other' AND MAX(frequency) IS NOT NULL THEN MIN(provider_active) AND julianday(?)-julianday(MAX(last_day))<=1.5*CASE MAX(frequency) WHEN 'weekly' THEN 7 WHEN 'monthly' THEN 30.4375 WHEN 'quarterly' THEN 91.3125 WHEN 'yearly' THEN 365.25 END END,
-            CASE WHEN merchant!='Other' AND MAX(frequency) IS NOT NULL THEN MAX(method) END,
-            CASE WHEN merchant!='Other' THEN MAX(merchant_source) ELSE 'unknown' END
-          FROM folded GROUP BY merchant,currency"""
-        for merchant,currency,total,count,frequency,typical,month,active,method,source in db.execute(sql,[start.isoformat(),end.isoformat(),*disabled,*disabled,threshold,threshold,threshold,today.isoformat()]):
-            out.execute('INSERT INTO merchants VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',(window,merchant,currency,total,count,months,bool(frequency),frequency,typical,month,active,method,source))
+    from account_scope import separate_accounts, SCOPES
+    separate=separate_accounts(db)
+    db.execute('CREATE TEMP TABLE IF NOT EXISTS separate_scope(ref TEXT PRIMARY KEY)')
+    db.execute('DELETE FROM separate_scope')
+    db.executemany('INSERT INTO separate_scope VALUES(?)',[(ref,) for ref in separate])
+    for scope in SCOPES:
+        scope_filter="" if scope=='all' else " AND "+("" if scope=='separate' else "NOT ")+"EXISTS (SELECT 1 FROM separate_scope z WHERE z.ref=COALESCE(m.ref,u.ref))"
+        # Provider streams have no safe account attribution; scoped cadence uses
+        # only charges inside that scope rather than borrowing a provider hint.
+        hint_filter='' if scope=='all' else ' AND 0'
+        for window,start,end,months in window_bounds(today,earliest):
+            sql=f"""WITH eligible AS (
+              SELECT t.date,t.amount,t.currency,COALESCE(t.merchant,'Other') AS merchant,t.merchant_source FROM transactions t
+              JOIN items i ON i.id=t.item LEFT JOIN account_alias m ON m.item=t.item AND m.provider_ref=t.account LEFT JOIN account_alias u ON u.item=t.item AND u.provider_ref='virtual:'||t.item LEFT JOIN source_identity s ON s.provider_ref=t.item
+              WHERE t.pending=0 AND lower(i.institution) NOT LIKE '%venmo%' AND t.flow_kind='activity' AND t.primary_category!='INCOME' AND NOT EXISTS (SELECT 1 FROM internal_matches x WHERE x.item=t.item AND x.transaction_ref=t.id) AND t.date>=? AND t.date<? {excluded} {scope_filter}),
+              charges AS (SELECT *,julianday(date)-julianday(LAG(date) OVER(PARTITION BY merchant COLLATE NOCASE,currency ORDER BY date)) AS gap,
+                ROW_NUMBER() OVER(PARTITION BY merchant COLLATE NOCASE,currency ORDER BY amount) AS amount_rank,
+                COUNT(*) OVER(PARTITION BY merchant COLLATE NOCASE,currency) AS n FROM eligible WHERE amount>0),
+              cadence AS (SELECT merchant,currency,
+                CASE WHEN COUNT(*)>=2 AND MIN(amount)>0 AND MAX(amount)<=MIN(amount)*1.25 THEN CASE
+                  WHEN MIN(gap)>=5 AND MAX(gap)<=9 THEN 'weekly'
+                  WHEN MIN(gap)>=25 AND MAX(gap)<=35 THEN 'monthly'
+                  WHEN MIN(gap)>=80 AND MAX(gap)<=100 THEN 'quarterly'
+                  WHEN MIN(gap)>=350 AND MAX(gap)<=380 THEN 'yearly' END END AS frequency,
+                AVG(CASE WHEN amount_rank IN ((n+1)/2,(n+2)/2) THEN amount END) AS typical_charge,
+                MAX(date) AS last_day FROM charges GROUP BY merchant COLLATE NOCASE,currency),
+              hints AS (SELECT r.merchant,r.currency,MIN(r.frequency) AS frequency,MIN(r.active) AS active
+                FROM recurring_merchants r LEFT JOIN source_identity s ON s.provider_ref=r.item
+                WHERE r.frequency IS NOT NULL {excluded} {hint_filter} GROUP BY r.merchant COLLATE NOCASE,r.currency HAVING COUNT(DISTINCT r.frequency)=1),
+              grouped AS (SELECT MIN(e.merchant) AS merchant,e.currency,SUM(e.amount) AS total,SUM(e.amount>0) AS purchase_count,
+                COALESCE(h.frequency,c.frequency) AS frequency,c.typical_charge,c.last_day,
+                CASE WHEN h.frequency IS NOT NULL THEN 'provider_pattern' ELSE 'cadence_heuristic' END AS method,
+                COALESCE(h.active,1) AS provider_active,CASE WHEN MIN(e.merchant_source)=MAX(e.merchant_source) THEN MIN(e.merchant_source) ELSE 'mixed' END AS merchant_source
+                FROM eligible e LEFT JOIN cadence c ON c.merchant=e.merchant COLLATE NOCASE AND c.currency=e.currency
+                LEFT JOIN hints h ON h.merchant=e.merchant COLLATE NOCASE AND h.currency=e.currency GROUP BY e.merchant COLLATE NOCASE,e.currency),
+              folded AS (SELECT CASE WHEN purchase_count<? THEN 'Other' ELSE merchant END AS merchant,currency,total,purchase_count,
+                CASE WHEN purchase_count<? THEN NULL ELSE frequency END AS frequency,typical_charge,last_day,method,provider_active,merchant_source FROM grouped)
+              SELECT merchant,currency,CASE WHEN SUM(purchase_count)>=? THEN ROUND(SUM(total),2) END,SUM(purchase_count),
+                CASE WHEN merchant!='Other' THEN MAX(frequency) END,
+                CASE WHEN merchant!='Other' AND MAX(frequency) IS NOT NULL THEN ROUND(MAX(typical_charge),2) END,
+                CASE WHEN merchant!='Other' AND MAX(frequency) IS NOT NULL THEN substr(MAX(last_day),1,7) END,
+                CASE WHEN merchant!='Other' AND MAX(frequency) IS NOT NULL THEN MIN(provider_active) AND julianday(?)-julianday(MAX(last_day))<=1.5*CASE MAX(frequency) WHEN 'weekly' THEN 7 WHEN 'monthly' THEN 30.4375 WHEN 'quarterly' THEN 91.3125 WHEN 'yearly' THEN 365.25 END END,
+                CASE WHEN merchant!='Other' AND MAX(frequency) IS NOT NULL THEN MAX(method) END,
+                CASE WHEN merchant!='Other' THEN MAX(merchant_source) ELSE 'unknown' END
+              FROM folded GROUP BY merchant,currency"""
+            for merchant,currency,total,count,frequency,typical,month,active,method,source in db.execute(sql,[start.isoformat(),end.isoformat(),*disabled,*disabled,threshold,threshold,threshold,today.isoformat()]):
+                out.execute('INSERT INTO merchants VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)',(window,merchant,currency,total,count,months,bool(frequency),frequency,typical,month,active,method,source,scope))

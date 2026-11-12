@@ -40,7 +40,7 @@ def audit_snapshot(public,private,private_strings,strict_strings,approved_busine
         expected=sqlite3.connect(':memory:')
         try:
             expected.executescript(MERCHANT_SCHEMA);publish_merchants(private,expected)
-            if db.execute('SELECT * FROM merchants ORDER BY window,merchant,currency').fetchall()!=expected.execute('SELECT * FROM merchants ORDER BY window,merchant,currency').fetchall():raise ValueError('Merchant aggregates differ from private SQL')
+            if db.execute('SELECT * FROM merchants ORDER BY window,scope,merchant,currency').fetchall()!=expected.execute('SELECT * FROM merchants ORDER BY window,scope,merchant,currency').fetchall():raise ValueError('Merchant aggregates differ from private SQL')
         finally:expected.close()
         PHASE='internal_transfer_audit'
         invalid=private.execute('''SELECT COUNT(*) FROM internal_matches x
@@ -96,12 +96,17 @@ def audit_snapshot(public,private,private_strings,strict_strings,approved_busine
     q=Queries(public)
     for name in TOOLS:
         windows=__import__('merchants').WINDOWS if name=='merchant_totals' else (None,)
+        scopes=__import__('account_scope').SCOPES if name in ('merchant_totals','overview','cash_flow','balance_summary') else (None,)
         for window in windows:
-            response=getattr(q,name)(window=window) if window else getattr(q,name)()
-            check_fields(response)
-            encoded=json.dumps(response,ensure_ascii=False).encode()
-            for value in sorted(allowed,key=len,reverse=True):encoded=encoded.replace(value.encode(),b' '*len(value.encode()))
-            check(encoded,forbidden)
+            for scope in scopes:
+                kwargs={}
+                if window:kwargs['window']=window
+                if scope:kwargs['scope']=scope
+                response=getattr(q,name)(**kwargs)
+                check_fields(response)
+                encoded=json.dumps(response,ensure_ascii=False).encode()
+                for value in sorted(allowed,key=len,reverse=True):encoded=encoded.replace(value.encode(),b' '*len(value.encode()))
+                check(encoded,forbidden)
     return sources,healthy,accounts
 
 

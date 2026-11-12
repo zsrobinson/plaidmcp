@@ -99,3 +99,19 @@ The SQL publisher groups across enabled sources and folds counts below max(2,
 min_group_count); a singleton Other has null amounts. Fixed windows limit accidental
 isolation, but overlapping aggregates are not differential privacy and can permit
 inference. Business recognition is conservative and may omit genuine businesses.
+
+## Account scopes
+
+The private sync configuration may mark stable account refs as separate. Snapshot
+accounts carry only a fixed own/separate label, never a reason or owner name.
+The default all scope preserves the existing tool view. Balance and activity
+queries intersect scope with their existing filters; overview uses the same scope
+for every section and comparison in its pinned read transaction.
+
+Merchant snapshots use (window, scope, merchant, currency) keys and recompute
+folding and cadence inside each scope before publication. A merchant visible in
+all can remain suppressed in both component scopes. Provider stream hints are
+used only for all because their stored attribution is source-level. Fixed window
+bounds remain shared across scopes, including the all-history observed span.
+Account scope is assigned before merchant publication; unknown private refs fail
+with a fixed message and leave the prior snapshot in place.
