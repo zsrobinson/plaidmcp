@@ -61,3 +61,12 @@ async def test_link_local_csrf_single_use_and_duplicate(tmp_path,monkeypatch,sel
         assert db.execute('SELECT token FROM credentials').fetchone()[0]=='fake-access'
     with pytest.raises(SystemExit,match='already linked'): link.main()
     assert len(calls)==2
+
+
+def test_initial_history_payload():
+    assert link.token_payload('transactions')['transactions']=={'days_requested':730}
+    assert link.token_payload('transactions',days_requested=30)['transactions']=={'days_requested':30}
+    assert 'transactions' not in link.token_payload('investments')
+    assert 'transactions' not in link.token_payload('transactions',('item','fake-token'))
+    for value in (29,731,'bad'):
+        with pytest.raises(link.argparse.ArgumentTypeError): link.token_payload('transactions',days_requested=value)
