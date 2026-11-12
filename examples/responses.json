@@ -1,12 +1,12 @@
 {
   "overview": {
     "as_of": {
-      "src_bffbbeacc8384a67b985840e4528b1d6": "2026-11-10T12:00:00+00:00",
-      "src_0c90b0a5f41846e78fe3bd033e58bb3e": "2026-11-10T12:00:00+00:00"
+      "src_example_1": "2026-11-10T12:00:00+00:00",
+      "src_example_2": "2026-11-10T12:00:00+00:00"
     },
     "sources": [
       {
-        "id": "src_bffbbeacc8384a67b985840e4528b1d6",
+        "id": "src_example_1",
         "institution": "Example Bank",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -18,7 +18,7 @@
         "freshness": "current"
       },
       {
-        "id": "src_0c90b0a5f41846e78fe3bd033e58bb3e",
+        "id": "src_example_2",
         "institution": "Example Broker",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -231,12 +231,12 @@
   },
   "list_accounts": {
     "as_of": {
-      "src_bffbbeacc8384a67b985840e4528b1d6": "2026-11-10T12:00:00+00:00",
-      "src_0c90b0a5f41846e78fe3bd033e58bb3e": "2026-11-10T12:00:00+00:00"
+      "src_example_1": "2026-11-10T12:00:00+00:00",
+      "src_example_2": "2026-11-10T12:00:00+00:00"
     },
     "sources": [
       {
-        "id": "src_bffbbeacc8384a67b985840e4528b1d6",
+        "id": "src_example_1",
         "institution": "Example Bank",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -248,7 +248,7 @@
         "freshness": "current"
       },
       {
-        "id": "src_0c90b0a5f41846e78fe3bd033e58bb3e",
+        "id": "src_example_2",
         "institution": "Example Broker",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -263,7 +263,7 @@
     "unreliable_sources": [],
     "data": [
       {
-        "id": "acct_15b6f8f2876b48c89d3415bb8df64139",
+        "id": "acct_example_1",
         "display_name": "Checking f64139",
         "institution": "Example Bank",
         "type": "depository",
@@ -277,14 +277,14 @@
           "spending"
         ],
         "availability": "available",
-        "source_id": "src_bffbbeacc8384a67b985840e4528b1d6",
+        "source_id": "src_example_1",
         "source_kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
         "freshness": "current",
         "status": "healthy"
       },
       {
-        "id": "acct_420b5427b9a246c3a2f8dea6a0edb1f6",
+        "id": "acct_example_2",
         "display_name": "Credit Card edb1f6",
         "institution": "Example Bank",
         "type": "credit",
@@ -298,14 +298,14 @@
           "spending"
         ],
         "availability": "available",
-        "source_id": "src_bffbbeacc8384a67b985840e4528b1d6",
+        "source_id": "src_example_1",
         "source_kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
         "freshness": "current",
         "status": "healthy"
       },
       {
-        "id": "acct_cd2d39e66b514dcf9b09525cd6cf22a9",
+        "id": "acct_example_3",
         "display_name": "Brokerage cf22a9",
         "institution": "Example Broker",
         "type": "investment",
@@ -319,7 +319,7 @@
           "holdings"
         ],
         "availability": "available",
-        "source_id": "src_0c90b0a5f41846e78fe3bd033e58bb3e",
+        "source_id": "src_example_2",
         "source_kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
         "freshness": "current",
@@ -329,12 +329,12 @@
   },
   "list_sources": {
     "as_of": {
-      "src_bffbbeacc8384a67b985840e4528b1d6": "2026-11-10T12:00:00+00:00",
-      "src_0c90b0a5f41846e78fe3bd033e58bb3e": "2026-11-10T12:00:00+00:00"
+      "src_example_1": "2026-11-10T12:00:00+00:00",
+      "src_example_2": "2026-11-10T12:00:00+00:00"
     },
     "sources": [
       {
-        "id": "src_bffbbeacc8384a67b985840e4528b1d6",
+        "id": "src_example_1",
         "institution": "Example Bank",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -346,7 +346,7 @@
         "freshness": "current"
       },
       {
-        "id": "src_0c90b0a5f41846e78fe3bd033e58bb3e",
+        "id": "src_example_2",
         "institution": "Example Broker",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -361,7 +361,7 @@
     "unreliable_sources": [],
     "data": [
       {
-        "id": "src_bffbbeacc8384a67b985840e4528b1d6",
+        "id": "src_example_1",
         "institution": "Example Bank",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -373,7 +373,7 @@
         "freshness": "current"
       },
       {
-        "id": "src_0c90b0a5f41846e78fe3bd033e58bb3e",
+        "id": "src_example_2",
         "institution": "Example Broker",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -388,12 +388,12 @@
   },
   "list_categories": {
     "as_of": {
-      "src_bffbbeacc8384a67b985840e4528b1d6": "2026-11-10T12:00:00+00:00",
-      "src_0c90b0a5f41846e78fe3bd033e58bb3e": "2026-11-10T12:00:00+00:00"
+      "src_example_1": "2026-11-10T12:00:00+00:00",
+      "src_example_2": "2026-11-10T12:00:00+00:00"
     },
     "sources": [
       {
-        "id": "src_bffbbeacc8384a67b985840e4528b1d6",
+        "id": "src_example_1",
         "institution": "Example Bank",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -405,7 +405,7 @@
         "freshness": "current"
       },
       {
-        "id": "src_0c90b0a5f41846e78fe3bd033e58bb3e",
+        "id": "src_example_2",
         "institution": "Example Broker",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -453,12 +453,12 @@
   },
   "cash_flow": {
     "as_of": {
-      "src_bffbbeacc8384a67b985840e4528b1d6": "2026-11-10T12:00:00+00:00",
-      "src_0c90b0a5f41846e78fe3bd033e58bb3e": "2026-11-10T12:00:00+00:00"
+      "src_example_1": "2026-11-10T12:00:00+00:00",
+      "src_example_2": "2026-11-10T12:00:00+00:00"
     },
     "sources": [
       {
-        "id": "src_bffbbeacc8384a67b985840e4528b1d6",
+        "id": "src_example_1",
         "institution": "Example Bank",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -470,7 +470,7 @@
         "freshness": "current"
       },
       {
-        "id": "src_0c90b0a5f41846e78fe3bd033e58bb3e",
+        "id": "src_example_2",
         "institution": "Example Broker",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -538,12 +538,12 @@
   },
   "balance_summary": {
     "as_of": {
-      "src_bffbbeacc8384a67b985840e4528b1d6": "2026-11-10T12:00:00+00:00",
-      "src_0c90b0a5f41846e78fe3bd033e58bb3e": "2026-11-10T12:00:00+00:00"
+      "src_example_1": "2026-11-10T12:00:00+00:00",
+      "src_example_2": "2026-11-10T12:00:00+00:00"
     },
     "sources": [
       {
-        "id": "src_bffbbeacc8384a67b985840e4528b1d6",
+        "id": "src_example_1",
         "institution": "Example Bank",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -555,7 +555,7 @@
         "freshness": "current"
       },
       {
-        "id": "src_0c90b0a5f41846e78fe3bd033e58bb3e",
+        "id": "src_example_2",
         "institution": "Example Broker",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -624,12 +624,12 @@
   },
   "holdings": {
     "as_of": {
-      "src_bffbbeacc8384a67b985840e4528b1d6": "2026-11-10T12:00:00+00:00",
-      "src_0c90b0a5f41846e78fe3bd033e58bb3e": "2026-11-10T12:00:00+00:00"
+      "src_example_1": "2026-11-10T12:00:00+00:00",
+      "src_example_2": "2026-11-10T12:00:00+00:00"
     },
     "sources": [
       {
-        "id": "src_bffbbeacc8384a67b985840e4528b1d6",
+        "id": "src_example_1",
         "institution": "Example Bank",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -641,7 +641,7 @@
         "freshness": "current"
       },
       {
-        "id": "src_0c90b0a5f41846e78fe3bd033e58bb3e",
+        "id": "src_example_2",
         "institution": "Example Broker",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -683,12 +683,12 @@
   },
   "merchant_totals": {
     "as_of": {
-      "src_bffbbeacc8384a67b985840e4528b1d6": "2026-11-10T12:00:00+00:00",
-      "src_0c90b0a5f41846e78fe3bd033e58bb3e": "2026-11-10T12:00:00+00:00"
+      "src_example_1": "2026-11-10T12:00:00+00:00",
+      "src_example_2": "2026-11-10T12:00:00+00:00"
     },
     "sources": [
       {
-        "id": "src_bffbbeacc8384a67b985840e4528b1d6",
+        "id": "src_example_1",
         "institution": "Example Bank",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",
@@ -700,7 +700,7 @@
         "freshness": "current"
       },
       {
-        "id": "src_0c90b0a5f41846e78fe3bd033e58bb3e",
+        "id": "src_example_2",
         "institution": "Example Broker",
         "kind": "connection",
         "as_of": "2026-11-10T12:00:00+00:00",

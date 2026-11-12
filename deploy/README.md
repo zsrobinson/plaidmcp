@@ -30,3 +30,19 @@ existing running application. Pin the source revision and hash-locked wheels,
 validate locally, then switch the new service on explicitly. Keep rollback copies
 of changed deployment files, preserve existing services/routes, and fail closed
 until origin authentication is ready.
+
+## Private institution allowlist
+
+The temporary session requires `--institutions-config /private/institutions.json`
+(or `PLAIDMCP_INSTITUTIONS_CONFIG`). Missing, unreadable, empty or invalid files
+fail before session startup. Store the file in the private deployment repository
+and protect its installed copy. There are no built-in institution selections.
+The JSON object maps a local selection key to one allowed product and a nonempty
+institution name hint, for example:
+
+```json
+{"example_bank": {"product": "transactions", "name_hint": "Example Bank"}}
+```
+
+Only `transactions` and `investments` are supported. The hint retains Link's
+wrong-institution guard; it does not authorize creating a new connection.
