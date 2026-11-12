@@ -221,6 +221,7 @@ New transaction Items request 730 days of history by default. Use Link's
 `--days-requested N` to choose 30–730 days. Institutions may return less history.
 Plaid ignores this initialization setting for already-initialized Items; update
 mode does not send it and cannot extend existing history.
+
 ## Account scopes
 
 Set `PLAIDMCP_SEPARATE_ACCOUNTS=acct_example,acct_other` in private sync config
@@ -237,3 +238,58 @@ use cadence inside that scope because provider stream hints lack safe account
 attribution. Transfers retain their cross-account matching classification when
 viewed through a scope. These overlapping aggregates are not differential privacy.
 Re-publish before serving the new schema; all remains the compatibility default.
+## Bank/card statement backfill
+
+Set `PLAIDMCP_STATEMENT_IMPORT_DIR` to a private 0700 inbox root and
+`PLAIDMCP_STATEMENT_ACCOUNTS` to a private JSON object mapping simple subfolder
+names to existing opaque account ids from `list_accounts`, for example
+`{"card-history":"acct_example"}`. Each target must resolve to one active linked
+account with posted history. Upload complete CSVs as `.part`, then rename to
+`.csv` inside that account's subfolder. Sync refreshes linked history first,
+imports only dates strictly before that account's earliest posted linked row,
+publishes, then deletes processed files. No separate wallet/account is created.
+Pending linked rows do not set the cutoff. With no posted history, import fails
+closed and retains files. Publication failures retain files for retry.
+
+Headers use generic aliases (transaction date preferred over posted date,
+description, amount, debit, credit, category); optional `PLAIDMCP_STATEMENT_COLUMN_MAP`
+JSON maps those field names to custom headers. US `MM/DD/YYYY` and ISO dates,
+BOMs, preambles and known balance/summary footers are supported. Debit/Credit
+columns express positive outflow/inflow magnitudes. A single signed Amount uses
+bank conventions (negative outflow, positive inflow); an optional Type of
+Debit/Purchase/Withdrawal or Credit/Payment/Deposit/Refund gives explicit direction.
+Conflicting signs fail closed. Check these conventions against your export;
+card formats with positive unsigned charges should supply Type or map Debit/Credit.
+No bank-specific parser or real export is bundled.
+
+Optional `Category` / `Transaction Category` headers (or a JSON `category` mapping)
+accept a fixed, generic allowlist: dining/restaurants/groceries map to
+`FOOD_AND_DRINK`; gas/fuel/automotive/transportation to `TRANSPORTATION`;
+merchandise/shopping to `GENERAL_MERCHANDISE`; entertainment to `ENTERTAINMENT`;
+travel/airfare/lodging to `TRAVEL`; health/medical to `MEDICAL`; and fee/fees/interest
+to `BANK_FEES`. Payment/credit categories map to `LOAN_PAYMENTS` with
+`LOAN_PAYMENTS_CREDIT_CARD_PAYMENT`. Unknown categories stay `UNKNOWN`.
+Only these fixed codes persist; raw category cells are discarded. Category does
+not change the amount's direction, and a Credit amount column alone does not
+imply a card payment.
+
+Whole generic payment descriptions such as `PAYMENT THANK YOU`, `AUTOPAY`,
+`MOBILE PYMT`, `ONLINE PAYMENT`, `CREDIT CARD PAYMENT` and `CRCARDPMT` also identify
+card payments, allowing punctuation and trailing numeric references. Arbitrary
+payment text or merchant autopay purchases do not match this narrow pattern.
+Both the checking outflow and the card credit use the same card-payment category
+and `bank_transfer` flow, never merchant spending or refunds. Explicit peer rails
+retain peer classification even if the export category says Payment. Payments
+can match as internal transfers under the existing mutually unique, opposite-cent,
+same-currency, distinct-account, three-day rule; unmatched legs remain bank
+transfers, excluded from default spending and income.
+
+Only sanitized dates, amounts, fixed categories, account attribution and
+conservative descriptor-derived business labels persist. Descriptions are used
+only in memory for business/transfer/peer detection; unknown descriptions become
+Other. Names, numbers, balance cells and filenames are never stored or logged.
+Identical sanitized rows retain multiplicity within a file; overlapping files
+reuse sanitized row identities, so uploading the same file again is idempotent.
+Two indistinguishable genuine rows split across files cannot be distinguished;
+use complete exports. Merchant rebuilds preserve imported rows. Venmo's separate
+monthly statement importer and configuration remain unchanged.
