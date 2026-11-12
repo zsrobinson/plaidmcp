@@ -1,11 +1,11 @@
 # Plaid MCP
 
-A small, read-only aggregate view of personal money for Claude/Duet. Institutions
+A small, read-only aggregate view of personal money for MCP clients. Institutions
 and upstream connections are implementation details, not the tool interface.
 Start with `overview`; discover accounts/categories/sources before refining a
 question. [Exact tools and sign conventions](docs/tools.md) ·
 [Surface before this design pass](docs/tools-before.md) ·
-[Identity and source rules](docs/design.md) · [Future Pi runbook](deploy/README.md).
+[Identity and source rules](docs/design.md) · [Deployment contract](deploy/README.md).
 
 ## Layout
 
@@ -27,8 +27,6 @@ SQLite connections are per call, read-only and closed; blocking work runs off th
 ASGI event loop. Snapshot replacement is atomic, and each call pins one read
 transaction, including multi-section overview and comparison results. No payload,
 credential, assertion or raw exception logging. HTTP access logs are disabled.
-Initial combined HTTP smoke peak RSS was ~74 MiB on Ubuntu; ARM memory usage and
-live institution linking remain unverified. Staged units retain 192 MiB caps.
 
 ## Local verification
 
@@ -41,7 +39,8 @@ uv sync --locked
 .venv/bin/python sandbox_check.py --resume
 ```
 
-Offline fixtures are invented. Tests cover privacy, discovery, re-link identity,
+Offline fixtures are invented. `examples/responses.json` contains only synthetic
+responses with illustrative identifiers and amounts. Tests cover privacy, discovery, re-link identity,
 ambiguity, historical activity, another source without tool/schema changes,
 comparisons/averages, overview median, freshness, small-group folding, concurrent
 MCP calls, private CSV behavior and Access validation. The integration checker
@@ -49,17 +48,13 @@ reuses the most recent isolated run under `~/.local/state/plaidmcp-sandbox`, nev
 production. Omitting `--resume` creates a new throwaway run and fake Sandbox Item.
 Credentials remain only in `~/.config/plaidmcp/sandbox.env`, mode 0600 in 0700;
 the checker parses it as data and requires exact Sandbox configuration. Never
-paste values into commands, chat, Git or logs. Secret-delivery files were shredded.
-The separate temporary MCP process inherits no `PLAID_*` variables and is always
+paste values into commands, chat, Git or logs. The separate temporary MCP process inherits no `PLAID_*` variables and is always
 stopped. Public SQLite bytes, decoded fields and responses are scanned against
 real source strings retained only in checker memory. Short source strings use
 whole-token checks to avoid accidental substrings in security names/types.
 
-Live verification: seven tools, nine returned PFC categories requested as v2,
-13 holdings and nine transfers; standard data has no peer rows, so a real-response
-shape probe checks peer rules without claiming real Venmo support. Plaid does not
-echo a PFC version flag in these responses. Sandbox totals are fake finances.
-[Plaid Sandbox endpoint reference](https://plaid.com/docs/api/sandbox/).
+Sandbox verification uses invented upstream data and does not establish production
+institution or payment-wallet support.
 
 ## Private ingestion
 
@@ -76,7 +71,7 @@ come from `/accounts/get`; sync requests PFCv2 and commits pages/cursor together
 restarting pagination from its original cursor on mutation. Transactions and
 holdings may share one Item. Pending transactions are excluded from publication.
 
-Private credentials/state are outside Git. Two future system users separate sync
+Private credentials/state are outside Git. Separate system users separate sync
 secrets/raw stripped records from the MCP's aggregate-only snapshot. Provider
 account names are fingerprinted for matching and replaced with generated labels;
 descriptions, person counterparties, routing/owner/contact fields are not persisted.
@@ -88,13 +83,13 @@ Items are not recovered by deletion. Never delete private state to bypass guards
 
 ## Venmo CSV fallback
 
-Personal Venmo via Plaid is unconfirmed. Use only a verified institution id and
-`--product transactions` if it becomes available; no Venmo scraper/API/sign-in.
+For a supported personal wallet integration, use a verified institution id and
+`--product transactions`; no Venmo scraper/API/sign-in.
 Venmo documents downloadable personal statements in its
 [official statement guide](https://help.venmo.com/cs/articles/transaction-history-vhel281).
-No actual export has been seen. Transfer a complete month into the private inbox
+Transfer a complete month into the private inbox
 as `.part`, then atomically rename to `.csv` after upload/permissions are complete.
-Future inbox: `/var/lib/plaidmcp-private/import/venmo`, 0700, sync user only.
+Example inbox: `/var/lib/plaidmcp-private/import/venmo`, 0700, sync user only.
 The existing sync timer imports it; standalone `venmo_import.py` needs no Plaid keys.
 
 BOM/preamble/index tolerant, with US/ISO dates, header aliases and optional JSON

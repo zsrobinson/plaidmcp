@@ -11,7 +11,22 @@ PRIVATE=Path('/var/lib/plaidmcp-private')
 ENV=PRIVATE/'.config/plaidmcp/sync.env'
 PUBLIC=Path('/var/lib/plaidmcp/aggregate.sqlite')
 CONTROL=Path('/run/plaidmcp-production/control.sock')
-BANKS={'capital_one':('transactions','Capital One'),'schwab':('investments','Schwab'),'venmo':('transactions','Venmo - Personal')}
+def load_institutions(path=None):
+    """Load a deployment-owned allowlist; never infer or default institutions."""
+    path=path or os.environ.get('PLAIDMCP_INSTITUTIONS_CONFIG')
+    if not path:raise ValueError('Private institution configuration required')
+    try:
+        values=json.loads(Path(path).read_text())
+        if not isinstance(values,dict) or not values:raise ValueError
+        for key,value in values.items():
+            if not re.fullmatch(r'[a-z][a-z0-9_]{0,63}',key):raise ValueError
+            if not isinstance(value,dict) or set(value)!={'product','name_hint'}:raise ValueError
+            if value['product'] not in ('transactions','investments'):raise ValueError
+            hint=value['name_hint']
+            if not isinstance(hint,str) or not hint.strip() or len(hint)>200 or any(ord(c)<32 for c in hint):raise ValueError
+        return {key:(value['product'],value['name_hint']) for key,value in values.items()}
+    except (OSError,ValueError,TypeError):
+        raise ValueError('Invalid private institution configuration') from None
 
 
 def read_env(path):
@@ -38,7 +53,8 @@ def install_keys(path,client_id,secret,uid,gid):
 
 
 class Session:
-    def __init__(self,stage):
+    def __init__(self,stage,institutions_config=None):
+        self.banks=load_institutions(institutions_config)
         self.stage=stage;self.child=None;self.bank=None;self.audit=None
         self.onboarding=Path('/opt/fleet-plaidmcp/onboarding')
         self.refresh_helpers()
@@ -103,7 +119,7 @@ class Session:
             install_keys(ENV,request.get('client_id'),request.get('secret'),identity.pw_uid,identity.pw_gid)
             self.audit=None;return {'installed':True,'environment':'production','endpoint_product_and_access_guards':'unchanged'}
         if operation=='start_link':
-            if request.get('bank') not in BANKS:raise ValueError('Unapproved bank selection')
+            if request.get('bank') not in self.banks:raise ValueError('Unapproved bank selection')
             # Pause only this application's scheduler while adding a source. A successful
             # sync/privacy audit must resume it explicitly with enable_timer.
             if subprocess.run(['systemctl','is-active','--quiet','fleet-plaidmcp-sync.timer']).returncode==0:
@@ -112,7 +128,7 @@ class Session:
                 raise ValueError('A scheduled sync is still finishing; retry Link after it completes')
             self.stop_link()
             with socket.socket() as probe:probe.bind(('127.0.0.1',8768))
-            product,hint=BANKS[request['bank']]
+            product,hint=self.banks[request['bank']]
             self.child=subprocess.Popen(self.command(self.onboarding/'link.py','--product',product,'--institution-name',hint),env=self.settings(),cwd=BASE,
                 stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
             time.sleep(.5)
@@ -140,7 +156,7 @@ class Session:
         raise ValueError('Unknown onboarding operation')
 
 
-def serve():
+def serve(institutions_config=None):
     if os.geteuid()!=0 or not os.environ.get('SUDO_UID') or int(os.environ['SUDO_UID'])==0:
         raise SystemExit('Start with sudo from the approved operator account.')
     owner=pwd.getpwuid(int(os.environ['SUDO_UID']))
@@ -152,7 +168,7 @@ def serve():
             except ConnectionRefusedError:CONTROL.unlink()
             else:raise SystemExit('An onboarding session is already listening; do not replace it.')
     CONTROL.parent.mkdir(mode=0o710,exist_ok=True);os.chown(CONTROL.parent,0,owner.pw_gid);CONTROL.parent.chmod(0o710)
-    session=Session(Path(__file__).resolve().parent.parent)
+    session=Session(Path(__file__).resolve().parent.parent,institutions_config)
     listener=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM);listener.bind(str(CONTROL));os.chown(CONTROL,owner.pw_uid,owner.pw_gid);CONTROL.chmod(0o600)
     listener.listen(1);listener.settimeout(2);deadline=time.monotonic()+7200
     print('Production onboarding session ready. Keep this terminal open. It expires in two hours.',flush=True)
@@ -194,7 +210,7 @@ def client():
         print(out.decode().strip())
 
 if __name__=='__main__':
-    parser=argparse.ArgumentParser();parser.add_argument('--serve',action='store_true');args=parser.parse_args()
-    try:serve() if args.serve else client()
+    parser=argparse.ArgumentParser();parser.add_argument('--serve',action='store_true');parser.add_argument('--institutions-config');args=parser.parse_args()
+    try:serve(args.institutions_config) if args.serve else client()
     except KeyboardInterrupt:pass
     except Exception as error:raise SystemExit('Production session stopped ('+type(error).__name__+'); no sensitive values logged.') from None

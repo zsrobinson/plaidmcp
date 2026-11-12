@@ -42,3 +42,25 @@ def test_helper_refresh_verifies_pin_and_rejects_running_link(tmp_path,monkeypat
     with pytest.raises(ValueError):s.refresh_helpers()
     s.child=SimpleNamespace(poll=lambda:None)
     with pytest.raises(ValueError):s.refresh_helpers()
+
+
+def test_private_allowlist_required_and_validated(tmp_path,monkeypatch):
+    import json
+    m=module();monkeypatch.delenv('PLAIDMCP_INSTITUTIONS_CONFIG',raising=False)
+    with pytest.raises(ValueError):m.load_institutions()
+    path=tmp_path/'institutions.json'
+    for value in ({},[],{'bank':{'product':'auth','name_hint':'Example Bank'}},
+                  {'bank':{'product':'transactions','name_hint':''}},
+                  {'bank':{'product':'transactions','name_hint':'Example Bank','extra':True}}):
+        path.write_text(json.dumps(value))
+        with pytest.raises(ValueError):m.load_institutions(path)
+    path.write_text('invalid')
+    with pytest.raises(ValueError):m.load_institutions(path)
+    path.unlink()
+    with pytest.raises(ValueError):m.load_institutions(path)
+    path.write_text(json.dumps({'example':{'product':'transactions','name_hint':'Example Bank'}}))
+    monkeypatch.setenv('PLAIDMCP_INSTITUTIONS_CONFIG',str(path))
+    assert m.load_institutions()=={'example':('transactions','Example Bank')}
+    monkeypatch.setattr(m.Session,'refresh_helpers',lambda self:None)
+    session=m.Session(tmp_path)
+    with pytest.raises(ValueError):session.dispatch({'op':'start_link','bank':'unapproved'})
